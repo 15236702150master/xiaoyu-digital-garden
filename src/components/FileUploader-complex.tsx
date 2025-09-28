@@ -52,7 +52,14 @@ export default function FileUploader({
     setUploadingFiles(prev => [...prev, uploadingFile])
 
     try {
-      const result = await COSService.uploadFile(file, folder)
+      // 模拟文件上传过程
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      const result = {
+        url: URL.createObjectURL(file),
+        name: file.name,
+        size: file.size,
+        type: file.type
+      }
       
       setUploadingFiles(prev => 
         prev.map(f => 
