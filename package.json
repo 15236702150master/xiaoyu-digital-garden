@@ -3,8 +3,10 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "dev": "next dev -H 0.0.0.0",
+        "dev": "next dev -H 0.0.0.0 --turbopack",
         "build": "next build",
+        "export": "next export",
+        "deploy": "npm run build && npm run export",
         "start": "next start",
         "lint": "tsc --noEmit && next lint",
         "format": "npx biome format --write"
@@ -18,7 +20,8 @@
         "react-dom": "^18.3.1",
         "react-syntax-highlighter": "^15.6.6",
         "tailwind-merge": "^3.3.0",
-        "tailwindcss-animate": "^1.0.7"
+        "tailwindcss-animate": "^1.0.7",
+        "cos-js-sdk-v5": "^1.8.0"
     },
     "devDependencies": {
         "@biomejs/biome": "1.9.4",
