@@ -18,8 +18,7 @@
         "react-dom": "^18.3.1",
         "react-syntax-highlighter": "^15.6.6",
         "tailwind-merge": "^3.3.0",
-        "tailwindcss-animate": "^1.0.7",
-        "cos-js-sdk-v5": "^1.8.0"
+        "tailwindcss-animate": "^1.0.7"
     },
     "devDependencies": {
         "@biomejs/biome": "1.9.4",

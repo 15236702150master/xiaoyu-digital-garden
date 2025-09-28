@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Search, Plus, Hash } from 'lucide-react'
-import { Note, Category } from '@/types'
-import { NotesStorage, CategoriesStorage, TagsStorage } from '@/lib/storage'
+import { Note, Category } from '../types'
+import { NotesStorage, CategoriesStorage, TagsStorage } from '../lib/storage'
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([])
