@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Plus, Hash, Cloud } from 'lucide-react'
+import { Search, Plus, Hash, Cloud, Download, FileText } from 'lucide-react'
 import TreeNavigation from '../components/TreeNavigation'
 import NoteDetailView from '../components/NoteDetailView'
 import RecentNotes from '../components/RecentNotes'
@@ -9,13 +9,19 @@ import GlobalSearch from '../components/GlobalSearch'
 import BackupManager from '../components/BackupManager'
 import ColorPicker from '../components/ColorPicker'
 import TagManager from '../components/TagManager'
-import CloudStorage from '../components/CloudStorage'
+// import CloudStorage from '../components/CloudStorage' // 已删除云存储功能
+import BatchExportModal from '../components/BatchExportModal'
 import ResizableLayout from '../components/ResizableLayout'
-import { Note, Category } from '../types'
+import { Note, Category, NoteTemplate } from '../types'
 import { NotesStorage, CategoriesStorage, TagsStorage } from '../lib/storage'
+import { TemplateStorage } from '../lib/templateStorage'
 import ArticleView from '../components/ArticleView'
 import NoteEditor from '../components/NoteEditor'
 import TableOfContents from '../components/TableOfContents'
+import BacklinksPanel from '../components/BacklinksPanel'
+import AnnotationsPanel from '../components/AnnotationsPanel'
+import TemplateManager from '../components/TemplateManager'
+import FontSelector from '../components/FontSelector'
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([])
@@ -27,8 +33,13 @@ export default function Home() {
   const [selectedNote, setSelectedNote] = useState<Note | undefined>()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false)
-  const [isCloudStorageOpen, setIsCloudStorageOpen] = useState(false)
+  const [isBatchExportOpen, setIsBatchExportOpen] = useState(false)
+  const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false)
+  const [isTemplateEditing, setIsTemplateEditing] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<NoteTemplate | undefined>()
+  // const [isCloudStorageOpen, setIsCloudStorageOpen] = useState(false) // 已删除云存储功能
   const [backgroundColor, setBackgroundColor] = useState('#f8f9fa')
+  const [selectedFont, setSelectedFont] = useState('system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif')
 
   // 初始化数据
   useEffect(() => {
@@ -40,6 +51,12 @@ export default function Home() {
     
     // 更新标签计数
     TagsStorage.updateTagCounts(loadedNotes)
+    
+    // 加载保存的字体设置
+    const savedFont = localStorage.getItem('digital-garden-font')
+    if (savedFont) {
+      setSelectedFont(savedFont)
+    }
     
     // 如果没有笔记，添加一些示例数据
     if (loadedNotes.length === 0) {
@@ -255,6 +272,107 @@ export default function Home() {
     }
   }
 
+  // 基于模板创建笔记
+  const handleCreateNoteFromTemplate = (template: NoteTemplate, title: string, categoryName: string) => {
+    const noteData = {
+      title,
+      content: template.content,
+      category: categoryName,
+      tags: template.tags || [],
+      isPublished: true
+    }
+    
+    const newNote = NotesStorage.addNote(noteData)
+    
+    // 更新状态
+    const updatedNotes = NotesStorage.getNotes()
+    setNotes(updatedNotes)
+    TagsStorage.updateTagCounts(updatedNotes)
+    
+    // 选择新创建的笔记
+    if (newNote) {
+      setSelectedNote(newNote)
+      setSelectedCategory(categoryName)
+    }
+  }
+
+  // 创建新模板
+  const handleCreateTemplate = (templateName: string) => {
+    // 创建一个空的模板笔记用于编辑
+    const templateNote: Note = {
+      id: `template-${Date.now()}`,
+      title: templateName,
+      content: '',
+      category: '模板',
+      tags: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isPublished: false
+    }
+    
+    // 直接在主页面中编辑，不使用模态框
+    setSelectedNote(templateNote)
+    setIsTemplateEditing(true)
+    setEditingTemplate(undefined) // 新建模板，不是编辑现有模板
+  }
+
+  // 编辑模板
+  const handleEditTemplate = (template: NoteTemplate) => {
+    // 将模板转换为笔记格式用于编辑
+    const templateNote: Note = {
+      id: `template-${template.id}`,
+      title: template.name,
+      content: template.content,
+      category: template.category || '模板',
+      tags: template.tags || [],
+      createdAt: template.createdAt,
+      updatedAt: template.updatedAt,
+      isPublished: false
+    }
+    
+    // 直接在主页面中编辑，不使用模态框
+    setSelectedNote(templateNote)
+    setEditingTemplate(template)
+    setIsTemplateEditing(true)
+  }
+
+  // 保存模板
+  const handleSaveTemplate = (noteData: Partial<Note>) => {
+    if (!selectedNote || !isTemplateEditing) return
+
+    if (editingTemplate) {
+      // 更新现有模板
+      TemplateStorage.updateTemplate({
+        id: editingTemplate.id,
+        name: noteData.title || editingTemplate.name,
+        content: noteData.content || editingTemplate.content,
+        tags: noteData.tags || editingTemplate.tags,
+        category: noteData.category || editingTemplate.category
+      })
+    } else {
+      // 创建新模板
+      const templateData = {
+        name: noteData.title || selectedNote.title,
+        content: noteData.content || '',
+        tags: noteData.tags || [],
+        category: noteData.category || '模板'
+      }
+      
+      TemplateStorage.createTemplate(templateData)
+    }
+
+    // 重置状态
+    setIsTemplateEditing(false)
+    setEditingTemplate(undefined)
+    setSelectedNote(undefined)
+  }
+
+  // 处理字体变更
+  const handleFontChange = (font: string) => {
+    setSelectedFont(font)
+    localStorage.setItem('digital-garden-font', font)
+  }
+
   return (
     <div 
       className="min-h-screen transition-colors duration-300 text-[#52575b]"
@@ -283,12 +401,28 @@ export default function Home() {
                 <Hash className="w-5 h-5" />
               </button>
               <button
+                onClick={() => setIsBatchExportOpen(true)}
+                className="p-2 rounded-lg transition-colors bg-white text-[#52575b] hover:bg-gray-50"
+                title="批量导出"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setIsTemplateManagerOpen(true)}
+                className="p-2 rounded-lg transition-colors bg-white text-[#52575b] hover:bg-gray-50"
+                title="模板管理"
+              >
+                <FileText className="w-5 h-5" />
+              </button>
+              {/* 云存储按钮已删除
+              <button
                 onClick={() => setIsCloudStorageOpen(true)}
                 className="p-2 rounded-lg transition-colors bg-white text-[#52575b] hover:bg-gray-50"
                 title="云存储"
               >
                 <Cloud className="w-5 h-5" />
               </button>
+              */}
               <BackupManager 
                 isDark={false} 
                 onDataRestore={handleDataRestore}
@@ -297,6 +431,11 @@ export default function Home() {
                 isDark={false}
                 onColorChange={handleBackgroundColorChange}
                 currentColor={backgroundColor}
+              />
+              <FontSelector
+                isDark={false}
+                onFontChange={handleFontChange}
+                currentFont={selectedFont}
               />
             </div>
           </div>
@@ -327,6 +466,16 @@ export default function Home() {
                 onMoveNote={handleMoveNote}
                 onDeleteNote={handleDeleteNote}
               />
+              
+              {/* 最近的笔记 */}
+              <div className="mt-6">
+                <RecentNotes 
+                  notes={notes} 
+                  isDark={false}
+                  onNoteSelect={handleNoteSelect}
+                  selectedNote={selectedNote}
+                />
+              </div>
             </div>
           }
           centerPanel={
@@ -335,7 +484,8 @@ export default function Home() {
                 note={selectedNote}
                 isDark={false}
                 notes={notes}
-                onSave={(noteData) => {
+                fontFamily={selectedFont}
+                onSave={isTemplateEditing ? handleSaveTemplate : (noteData) => {
                   const updatedNote = NotesStorage.updateNote(selectedNote.id, noteData)
                   if (updatedNote) {
                     setNotes(NotesStorage.getNotes())
@@ -361,12 +511,6 @@ export default function Home() {
           }
           rightPanel={
             <div className="p-4 space-y-6">
-              <RecentNotes 
-                notes={notes} 
-                isDark={false}
-                onNoteSelect={handleNoteSelect}
-              />
-              
               {/* 目录导航 - 仅在选中笔记且有标题时显示 */}
               {selectedNote && selectedNote.content && (() => {
                 const tempDiv = document.createElement('div')
@@ -379,13 +523,38 @@ export default function Home() {
                   isDark={false}
                 />
               )}
+
+              {/* 双向链接面板 - 仅在选中笔记时显示 */}
+              {selectedNote && (
+                <BacklinksPanel
+                  currentNote={selectedNote}
+                  allNotes={notes}
+                  onNoteSelect={handleNoteSelect}
+                  isDark={false}
+                />
+              )}
+
+              {/* 备注面板 - 仅在选中笔记时显示 */}
+              {selectedNote && (
+                <AnnotationsPanel
+                  currentNote={selectedNote}
+                  onNoteUpdate={(noteData) => {
+                    const updatedNote = NotesStorage.updateNote(selectedNote.id, noteData)
+                    if (updatedNote) {
+                      setNotes(NotesStorage.getNotes())
+                      setSelectedNote(updatedNote)
+                    }
+                  }}
+                  isDark={false}
+                />
+              )}
             </div>
           }
         />
       </div>
 
-      {/* 笔记编辑器 */}
-      {isEditorOpen && (
+      {/* 笔记编辑器 - 仅用于非模板编辑 */}
+      {isEditorOpen && !isTemplateEditing && (
         <NoteEditor
           note={editingNote}
           categories={categories}
@@ -415,13 +584,57 @@ export default function Home() {
         />
       )}
 
-      {/* 云存储管理器 */}
+      {/* 批量导出模态框 */}
+      {isBatchExportOpen && (
+        <BatchExportModal
+          isOpen={isBatchExportOpen}
+          onClose={() => setIsBatchExportOpen(false)}
+          notes={notes}
+          categories={categories}
+          isDark={false}
+        />
+      )}
+
+      {/* 模板管理器 */}
+      {isTemplateManagerOpen && (
+        <TemplateManager
+          isOpen={isTemplateManagerOpen}
+          onClose={() => setIsTemplateManagerOpen(false)}
+          onCreateNoteFromTemplate={handleCreateNoteFromTemplate}
+          onCreateTemplate={handleCreateTemplate}
+          onEditTemplate={handleEditTemplate}
+          categories={categories}
+          isDark={false}
+        />
+      )}
+
+      {/* 云存储管理器已删除
       {isCloudStorageOpen && (
         <CloudStorage
           onClose={() => setIsCloudStorageOpen(false)}
           isDark={false}
         />
       )}
+      */}
+
+      {/* 全局样式 */}
+      <style jsx global>{`
+        .text-with-note {
+          position: relative;
+        }
+        
+        .text-with-note:hover {
+          background: rgba(59, 130, 246, 0.1);
+          border-radius: 2px;
+        }
+        
+        .highlight-annotation {
+          background: rgba(59, 130, 246, 0.3) !important;
+          border-radius: 4px;
+          padding: 2px 4px;
+          transition: all 0.3s ease;
+        }
+      `}</style>
     </div>
   )
 }

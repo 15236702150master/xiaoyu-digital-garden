@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { Bold, Italic, Underline, Highlighter, Code, Link, Quote, Indent, MessageSquare, Type, FileText } from 'lucide-react'
+import { Bold, Italic, Underline, Highlighter, Code, Link, Quote, Indent, MessageSquare, Type, FileText, Table } from 'lucide-react'
+import TableConfigModal, { TableConfig } from './TableConfigModal'
 import { Note } from '../types'
 
 interface InlineEditorProps {
@@ -10,6 +11,7 @@ interface InlineEditorProps {
   className?: string
   notes?: Note[]
   onNoteSelect?: (note: Note) => void
+  fontFamily?: string
 }
 
 interface FormatButton {
@@ -19,7 +21,7 @@ interface FormatButton {
   format: string
 }
 
-export default function InlineEditor({ content, onChange, isEditing, isDark = false, className = '', notes = [], onNoteSelect }: InlineEditorProps) {
+export default function InlineEditor({ content, onChange, isEditing, isDark = false, className = '', notes = [], onNoteSelect, fontFamily }: InlineEditorProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [showToolbar, setShowToolbar] = useState(false)
@@ -31,6 +33,7 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
   const [searchQuery, setSearchQuery] = useState('')
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([])
   const [selectedNoteRange, setSelectedNoteRange] = useState<Range | null>(null)
+  const [showTableModal, setShowTableModal] = useState(false)
 
   // 格式化按钮配置
   const formatButtons: FormatButton[] = [
@@ -44,50 +47,152 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     { id: 'note', icon: MessageSquare, label: '备注', format: 'note' },
     { id: 'notelink', icon: FileText, label: '笔记链接', format: 'notelink' },
     { id: 'indent', icon: Indent, label: '缩进', format: 'indent' },
-    { id: 'normal', icon: Type, label: '正文', format: 'normal' },
   ]
 
   // 处理选择变化
   const handleSelection = useCallback(() => {
     if (!isEditing || !contentRef.current) return
 
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) {
-      setShowToolbar(false)
-      return
-    }
+    // 添加小延迟确保选择完成
+    setTimeout(() => {
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) {
+        setShowToolbar(false)
+        return
+      }
 
-    const range = selection.getRangeAt(0)
-    const selectedText = range.toString().trim()
+      const range = selection.getRangeAt(0)
+      const selectedText = range.toString().trim()
 
-    if (!selectedText) {
-      setShowToolbar(false)
-      return
-    }
+      if (!selectedText || selectedText.length < 1) {
+        setShowToolbar(false)
+        return
+      }
 
-    // 计算工具栏位置
-    const rect = range.getBoundingClientRect()
-    const containerRect = contentRef.current.getBoundingClientRect()
-    
-    // 计算理想的居中位置
-    const idealLeft = rect.left - containerRect.left + (rect.width / 2)
-    
-    // 估算工具栏宽度（按钮数量 * 平均宽度）
-    const estimatedToolbarWidth = formatButtons.length * 40 + 24 // 40px per button + padding
-    
-    // 确保工具栏不会超出容器边界，左右各保留20px边距
-    const minLeft = 20 + estimatedToolbarWidth / 2 // 左边距 + 工具栏一半宽度
-    const maxLeft = containerRect.width - 20 - estimatedToolbarWidth / 2 // 容器宽度 - 右边距 - 工具栏一半宽度
-    
-    const safeLeft = Math.max(minLeft, Math.min(idealLeft, maxLeft))
-    
-    setToolbarPosition({
-      top: rect.top - containerRect.top - 50,
-      left: safeLeft
-    })
-    
-    setShowToolbar(true)
+      // 计算工具栏位置 - 相对于编辑器内容区域
+      const rect = range.getBoundingClientRect()
+      const containerRect = contentRef.current!.getBoundingClientRect()
+      
+      // 获取编辑器内容的实际可用区域（考虑padding和安全边距）
+      const contentPadding = 16 // 编辑器的padding
+      const safeMargin = 20 // 额外的安全边距，防止被左右面板覆盖
+      
+      const availableLeft = containerRect.left + contentPadding + safeMargin
+      const availableRight = containerRect.right - contentPadding - safeMargin
+      const availableWidth = availableRight - availableLeft
+      
+      // 选中文字相对于可用区域的位置
+      const selectionCenter = rect.left + (rect.width / 2)
+      const relativeCenter = selectionCenter - containerRect.left
+      
+      // 估算工具栏宽度
+      const estimatedToolbarWidth = formatButtons.length * 40 + 120
+      const halfToolbarWidth = estimatedToolbarWidth / 2
+      
+      // 计算工具栏的理想位置（相对于容器）
+      let finalLeft = relativeCenter
+      
+      // 确保工具栏完全在安全区域内
+      const minLeft = contentPadding + safeMargin + halfToolbarWidth
+      const maxLeft = containerRect.width - contentPadding - safeMargin - halfToolbarWidth
+      
+      finalLeft = Math.max(minLeft, Math.min(maxLeft, finalLeft))
+      
+      // 垂直位置：优先显示在选中文字上方
+      const idealTop = rect.top - containerRect.top - 60
+      let finalTop = idealTop
+      
+      // 如果上方空间不够，显示在下方
+      if (idealTop < 10) {
+        finalTop = rect.bottom - containerRect.top + 10
+      }
+      
+      setToolbarPosition({
+        top: finalTop,
+        left: finalLeft
+      })
+      
+      setShowToolbar(true)
+    }, 10) // 10ms延迟确保选择状态稳定
   }, [isEditing, formatButtons.length])
+
+  // 处理表格插入
+  const handleTableInsert = (config: TableConfig) => {
+    if (!contentRef.current) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    // 获取当前光标位置
+    let range: Range
+    if (selection.rangeCount > 0) {
+      range = selection.getRangeAt(0)
+    } else {
+      // 如果没有选区，在内容末尾插入
+      range = document.createRange()
+      range.selectNodeContents(contentRef.current)
+      range.collapse(false)
+    }
+
+    // 生成HTML表格
+    const { rows, cols, hasHeader, theme } = config
+    
+    // 主题颜色配置
+    const themeColors = {
+      default: { header: '#f5f5f5', cell: '#ffffff', border: '#ddd' },
+      blue: { header: '#e3f2fd', cell: '#f3f9ff', border: '#90caf9' },
+      green: { header: '#e8f5e8', cell: '#f1f8f1', border: '#81c784' },
+      yellow: { header: '#fff8e1', cell: '#fffef7', border: '#ffb74d' },
+      gray: { header: '#f5f5f5', cell: '#fafafa', border: '#bdbdbd' }
+    }
+    
+    const colors = themeColors[theme as keyof typeof themeColors] || themeColors.default
+    
+    let tableHTML = `<table style="border-collapse: collapse; width: 100%; margin: 16px 0; border: 1px solid ${colors.border};">`
+    
+    if (hasHeader) {
+      tableHTML += '<thead><tr>'
+      for (let j = 0; j < cols; j++) {
+        tableHTML += `<th style="border: 1px solid ${colors.border}; padding: 8px; background-color: ${colors.header}; font-weight: bold;">列${j + 1}</th>`
+      }
+      tableHTML += '</tr></thead>'
+      
+      tableHTML += '<tbody>'
+      for (let i = 0; i < rows - 1; i++) {
+        tableHTML += '<tr>'
+        for (let j = 0; j < cols; j++) {
+          tableHTML += `<td style="border: 1px solid ${colors.border}; padding: 8px; background-color: ${colors.cell};">内容</td>`
+        }
+        tableHTML += '</tr>'
+      }
+      tableHTML += '</tbody>'
+    } else {
+      tableHTML += '<tbody>'
+      for (let i = 0; i < rows; i++) {
+        tableHTML += '<tr>'
+        for (let j = 0; j < cols; j++) {
+          tableHTML += `<td style="border: 1px solid ${colors.border}; padding: 8px; background-color: ${colors.cell};">内容</td>`
+        }
+        tableHTML += '</tr>'
+      }
+      tableHTML += '</tbody>'
+    }
+    
+    tableHTML += '</table>'
+
+    // 插入表格
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = tableHTML
+    const fragment = document.createDocumentFragment()
+    while (tempDiv.firstChild) {
+      fragment.appendChild(tempDiv.firstChild)
+    }
+    
+    range.insertNode(fragment)
+    
+    // 触发内容变化
+    handleContentChange()
+  }
 
   // 应用格式
   const applyFormat = (format: string) => {
@@ -129,6 +234,11 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
       case 'quote':
         formattedContent = `<blockquote style="border-left: 4px solid #ccc; padding-left: 16px; margin: 16px 0; font-style: italic; color: #666;">${selectedText}</blockquote>`
         break
+      case 'table':
+        // 显示表格配置弹窗
+        setShowTableModal(true)
+        setShowToolbar(false)
+        return
       case 'note':
         // 保存选区，显示备注输入框
         setSelectedRange(range.cloneRange())
@@ -185,10 +295,11 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     if (!selectedRange || !noteText.trim()) return
 
     const selectedText = selectedRange.toString()
-    const noteId = `note-${Date.now()}`
+    const noteId = `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     
-    // 创建带备注的HTML
-    const formattedContent = `<span class="text-with-note" data-note-id="${noteId}" data-note-text="${noteText.trim()}" style="text-decoration: underline; text-decoration-style: wavy; text-decoration-color: #3b82f6; cursor: help;">${selectedText}</span>`
+    // 创建带备注的HTML，确保备注文本正确编码
+    const escapedNoteText = noteText.trim().replace(/"/g, '&quot;').replace(/&/g, '&amp;')
+    const formattedContent = `<span class="text-with-note" data-note-id="${noteId}" data-note-text="${escapedNoteText}" style="text-decoration: underline; text-decoration-style: wavy; text-decoration-color: #3b82f6; cursor: help;">${selectedText}</span>`
     
     // 替换选中的文本
     selectedRange.deleteContents()
@@ -248,15 +359,15 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     setFilteredNotes(filtered)
   }
 
-  // 选择笔记链接
-  const handleNoteSelect = (selectedNote: Note) => {
+  // 处理笔记选择
+  const handleNoteSelect = (note: Note) => {
     if (!selectedNoteRange) return
 
     const selectedText = selectedNoteRange.toString()
-    const noteId = `notelink-${Date.now()}`
+    const linkText = selectedText || note.title
     
     // 创建笔记链接HTML
-    const formattedContent = `<span class="note-link" data-note-id="${selectedNote.id}" data-note-title="${selectedNote.title}" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">${selectedText}</span>`
+    const formattedContent = `<a href="#" class="note-link" data-note-id="${note.id}" data-note-title="${note.title}" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">${linkText}</a>`
     
     // 替换选中的文本
     selectedNoteRange.deleteContents()
@@ -270,11 +381,10 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     }
     selectedNoteRange.insertNode(fragment)
 
-    // 将光标移到插入内容的末尾，并添加空格隔断格式
+    // 将光标移到插入内容的末尾
     if (lastNode) {
       const selection = window.getSelection()
       if (selection) {
-        // 添加一个空格来隔断格式继承
         const spaceNode = document.createTextNode(' ')
         lastNode.parentNode?.insertBefore(spaceNode, lastNode.nextSibling)
         
@@ -314,150 +424,82 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
 
   // 处理编辑模式切换和内容更新
   useEffect(() => {
-    if (contentRef.current) {
-      if (isEditing) {
-        const currentContent = contentRef.current.innerHTML
-        if (currentContent === '' || currentContent === '<p style="color: rgb(153, 153, 153);">这篇笔记还没有内容</p>') {
-          contentRef.current.innerHTML = content || '<p style="color: #999;">开始写作...</p>'
-        } else if (content && currentContent !== content) {
-          // 如果内容发生变化，更新编辑器内容
-          contentRef.current.innerHTML = content
-        }
-        // 聚焦到编辑区域
-        setTimeout(() => {
-          contentRef.current?.focus()
-        }, 10)
-      } else {
-        // 非编辑模式下，确保内容正确显示
-        if (content && contentRef.current.innerHTML !== content) {
-          contentRef.current.innerHTML = content || '<p>这篇笔记还没有内容</p>'
-        }
-      }
+    if (!contentRef.current) return
+
+    if (isEditing && content !== contentRef.current.innerHTML) {
+      contentRef.current.innerHTML = content || '<p>这篇笔记还没有内容</p>'
+    }
+    
+    if (!isEditing && content !== contentRef.current.innerHTML) {
+      contentRef.current.innerHTML = content || '<p>这篇笔记还没有内容</p>'
     }
   }, [isEditing, content])
 
-  // 监听选择变化
-  useEffect(() => {
-    const handleMouseUp = () => {
-      setTimeout(handleSelection, 10)
-    }
+  // 安全的链接点击处理
+  const handleLinkClick = useCallback((event: MouseEvent) => {
+    try {
+      if (isEditing || !onNoteSelect || !notes) return
 
+      const target = event.target as HTMLElement
+      if (!target) return
+
+      // 检查是否点击了笔记链接元素
+      if (target.classList.contains('note-link')) {
+        event.preventDefault()
+        event.stopPropagation()
+
+        const noteId = target.getAttribute('data-note-id')
+        if (noteId) {
+          const note = notes.find(n => n.id === noteId)
+          if (note && onNoteSelect) {
+            onNoteSelect(note)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('处理链接点击时出错:', error)
+    }
+  }, [isEditing, onNoteSelect, notes])
+
+  // 监听选择变化和链接点击
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (toolbarRef.current && !toolbarRef.current.contains(event.target as Node)) {
         setShowToolbar(false)
       }
     }
 
-    // 处理悬浮显示（备注和笔记链接）
-    const handleMouseOver = (event: MouseEvent) => {
+    // 处理备注悬浮显示
+    const handleAnnotationHover = (event: MouseEvent) => {
       const target = event.target as HTMLElement
-      
-      // 处理备注悬浮
-      if (target.classList.contains('text-with-note')) {
+      if (target && target.classList.contains('text-with-note')) {
         const noteText = target.getAttribute('data-note-text')
         if (noteText) {
-          // 创建悬浮提示
-          const tooltip = document.createElement('div')
-          tooltip.className = 'note-tooltip'
-          tooltip.textContent = noteText
-          tooltip.style.cssText = `
-            position: absolute;
-            background: ${isDark ? '#2a2a2a' : '#333'};
-            color: ${isDark ? '#e0e0e0' : '#fff'};
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            max-width: 200px;
-            word-wrap: break-word;
-            z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            pointer-events: none;
-          `
-          
-          const rect = target.getBoundingClientRect()
-          tooltip.style.left = `${rect.left + window.scrollX}px`
-          tooltip.style.top = `${rect.top + window.scrollY - 35}px`
-          
-          document.body.appendChild(tooltip)
-          target.setAttribute('data-tooltip-id', tooltip.className)
-        }
-      }
-      
-      // 处理笔记链接悬浮
-      if (target.classList.contains('note-link')) {
-        const noteTitle = target.getAttribute('data-note-title')
-        if (noteTitle) {
-          // 创建悬浮提示
-          const tooltip = document.createElement('div')
-          tooltip.className = 'note-link-tooltip'
-          tooltip.textContent = `📄 ${noteTitle}`
-          tooltip.style.cssText = `
-            position: absolute;
-            background: ${isDark ? '#2a2a2a' : '#333'};
-            color: ${isDark ? '#e0e0e0' : '#fff'};
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            max-width: 200px;
-            word-wrap: break-word;
-            z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            pointer-events: none;
-          `
-          
-          const rect = target.getBoundingClientRect()
-          tooltip.style.left = `${rect.left + window.scrollX}px`
-          tooltip.style.top = `${rect.top + window.scrollY - 35}px`
-          
-          document.body.appendChild(tooltip)
-          target.setAttribute('data-tooltip-id', tooltip.className)
+          const decodedText = noteText.replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+          target.title = decodedText
         }
       }
     }
 
-    const handleMouseOut = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (target.classList.contains('text-with-note') || target.classList.contains('note-link')) {
-        const tooltips = document.querySelectorAll('.note-tooltip, .note-link-tooltip')
-        tooltips.forEach(tooltip => tooltip.remove())
+    // 全局选择监听器
+    const handleGlobalSelection = () => {
+      if (isEditing && contentRef.current && document.activeElement === contentRef.current) {
+        handleSelection()
       }
     }
 
-    // 处理笔记链接点击
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (target.classList.contains('note-link')) {
-        event.preventDefault()
-        const noteId = target.getAttribute('data-note-id')
-        
-        if (noteId && onNoteSelect) {
-          // 在当前应用中查找并打开笔记
-          const targetNote = notes.find(note => note.id === noteId)
-          if (targetNote) {
-            onNoteSelect(targetNote)
-          }
-        }
-      }
-    }
-
-    if (isEditing) {
-      document.addEventListener('mouseup', handleMouseUp)
-      document.addEventListener('click', handleClickOutside)
-    }
-    
-    // 备注悬浮功能在编辑和非编辑模式都需要
-    document.addEventListener('mouseover', handleMouseOver)
-    document.addEventListener('mouseout', handleMouseOut)
-    document.addEventListener('click', handleClick)
+    document.addEventListener('click', handleClickOutside)
+    document.addEventListener('click', handleLinkClick)
+    document.addEventListener('mouseover', handleAnnotationHover)
+    document.addEventListener('selectionchange', handleGlobalSelection)
 
     return () => {
-      document.removeEventListener('mouseup', handleMouseUp)
       document.removeEventListener('click', handleClickOutside)
-      document.removeEventListener('mouseover', handleMouseOver)
-      document.removeEventListener('mouseout', handleMouseOut)
-      document.removeEventListener('click', handleClick)
+      document.removeEventListener('click', handleLinkClick)
+      document.removeEventListener('mouseover', handleAnnotationHover)
+      document.removeEventListener('selectionchange', handleGlobalSelection)
     }
-  }, [isEditing, handleSelection, isDark, notes, onNoteSelect])
+  }, [handleLinkClick, handleSelection, isEditing])
 
   return (
     <div className={`relative ${className}`}>
@@ -472,7 +514,8 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
           `}
           style={{
             wordBreak: 'break-word',
-            whiteSpace: 'pre-wrap'
+            whiteSpace: 'pre-wrap',
+            fontFamily
           }}
           dangerouslySetInnerHTML={{
             __html: content || '<p>这篇笔记还没有内容</p>'
@@ -484,6 +527,12 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
           contentEditable={true}
           suppressContentEditableWarning={true}
           onInput={handleContentChange}
+          onMouseUp={handleSelection}
+          onKeyUp={handleSelection}
+          onMouseDown={() => {
+            // 鼠标按下时隐藏工具栏，等待新的选择
+            setTimeout(() => setShowToolbar(false), 10)
+          }}
           className={`
             note-content w-full min-h-[200px] p-4 rounded-lg transition-colors resize-none bg-transparent placeholder-gray-500
             ${isDark ? 'text-[#e0e0e0] placeholder-[#a0a0a0]' : ''}
@@ -492,13 +541,14 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
           `}
           style={{
             wordBreak: 'break-word',
-            whiteSpace: 'pre-wrap'
+            whiteSpace: 'pre-wrap',
+            fontFamily
           }}
         />
       )}
 
-      {/* 格式化工具栏 */}
-      {showToolbar && isEditing && (
+      {/* 格式化工具栏 - 在选中文字附近显示 */}
+      {showToolbar && (
         <div
           ref={toolbarRef}
           className={`absolute z-50 flex items-center gap-1 px-3 py-2 rounded-lg shadow-lg border ${
@@ -507,20 +557,24 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
               : 'bg-white border-gray-200'
           }`}
           style={{
-            top: toolbarPosition.top,
-            left: toolbarPosition.left,
+            top: `${toolbarPosition.top}px`,
+            left: `${toolbarPosition.left}px`,
             transform: 'translateX(-50%)'
           }}
         >
-          {formatButtons.map((button) => (
-            <div key={button.id} className="relative group">
+          <span className={`text-xs mr-2 ${isDark ? 'text-[#a0a0a0]' : 'text-gray-500'}`}>
+            已选择: "{window.getSelection()?.toString().substring(0, 20)}{(window.getSelection()?.toString().length || 0) > 20 ? '...' : ''}"
+          </span>
+          {formatButtons.map((button, index) => (
+            <div key={index} className="relative group">
               <button
                 onClick={() => applyFormat(button.format)}
-                className={`p-2 rounded hover:bg-opacity-80 transition-colors ${
+                className={`p-2 rounded transition-colors ${
                   isDark
-                    ? 'text-[#e0e0e0] hover:bg-[#404040]'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'hover:bg-[#404040] text-[#e0e0e0]'
+                    : 'hover:bg-gray-100 text-gray-600'
                 }`}
+                title={button.label}
               >
                 <button.icon className="w-4 h-4" />
               </button>
@@ -668,6 +722,14 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
           </div>
         </div>
       )}
+
+      {/* 表格配置弹窗 */}
+      <TableConfigModal
+        isOpen={showTableModal}
+        onClose={() => setShowTableModal(false)}
+        onConfirm={handleTableInsert}
+        isDark={isDark}
+      />
     </div>
   )
 }

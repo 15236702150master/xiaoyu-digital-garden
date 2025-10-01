@@ -23,7 +23,7 @@ export default function RecentNotes({ notes, isDark, onNoteSelect, selectedNote 
     .slice(0, 5)
 
   return (
-    <div className="p-4 sticky top-6">
+    <div>
       <h3 className={`
         text-sm font-semibold mb-3
         ${isDark ? 'text-[#e0e0e0]' : 'text-[#2d3748]'}

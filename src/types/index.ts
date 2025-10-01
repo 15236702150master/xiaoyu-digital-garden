@@ -33,3 +33,15 @@ export interface SearchResult {
   score: number
   matches: string[]
 }
+
+export interface NoteTemplate {
+  id: string
+  name: string
+  description?: string
+  content: string
+  category?: string
+  tags?: string[]
+  createdAt: string
+  updatedAt: string
+  isSystem?: boolean // 是否为系统预设模板
+}

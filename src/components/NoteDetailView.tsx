@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react'
 import { 
   ArrowLeft, Edit, Save, X, Upload, Bold, Italic, Underline, Highlighter, Code, Link, Quote, StickyNote, Indent, Type, 
   Heading1, Heading2, Heading3, List, ListOrdered, CheckSquare, Minus, Code2, BookOpen, ChevronDown, 
-  MessageSquare, Brackets, Tag, Calendar, Plus, Image, 
+  MessageSquare, Brackets, Tag, Calendar, Plus, Image, Table, 
 } from 'lucide-react'
 import { Note } from '../types'
 import BreadcrumbNav from './BreadcrumbNav'
 import TagDisplay from './TagDisplay'
+import TagSelector from './TagSelector'
 import InlineEditor from './InlineEditor'
 import ImageUpload from './ImageUpload'
 import TableOfContents from './TableOfContents'
+import SingleNoteExport from './SingleNoteExport'
+import TableConfigModal, { TableConfig } from './TableConfigModal'
+import { generateMarkdownTable, insertTableAtPosition } from '../utils/tableGenerator'
 
 interface NoteDetailViewProps {
   note: Note
@@ -18,10 +22,16 @@ interface NoteDetailViewProps {
   onClose?: () => void
   notes?: Note[]
   onNoteSelect?: (note: Note) => void
+  fontFamily?: string
+  onScrollToAnnotation?: (position: number) => void
+  isEditing?: boolean
+  onEditingChange?: (editing: boolean) => void
 }
 
-export default function NoteDetailView({ note, isDark, onSave, onClose, notes = [], onNoteSelect }: NoteDetailViewProps) {
-  const [isEditing, setIsEditing] = useState(false)
+export default function NoteDetailView({ note, isDark, onSave, onClose, notes = [], onNoteSelect, fontFamily, onScrollToAnnotation, isEditing: externalIsEditing, onEditingChange }: NoteDetailViewProps) {
+  const [internalIsEditing, setInternalIsEditing] = useState(false)
+  const isEditing = externalIsEditing !== undefined ? externalIsEditing : internalIsEditing
+  const setIsEditing = onEditingChange || setInternalIsEditing
   const [content, setContent] = useState(note.content)
   const [title, setTitle] = useState(note.title)
   const [selectedTags, setSelectedTags] = useState<string[]>(note.tags || [])
@@ -29,6 +39,37 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
   const [showH1Menu, setShowH1Menu] = useState(false)
   const [showH2Menu, setShowH2Menu] = useState(false)
   const [showH3Menu, setShowH3Menu] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [showTableModal, setShowTableModal] = useState(false)
+
+  // 滚动到备注位置
+  const handleScrollToAnnotation = (position: number) => {
+    try {
+      // 查找包含备注的元素
+      const noteContent = document.querySelector('.note-content')
+      if (!noteContent) return
+
+      // 查找所有备注元素
+      const annotations = noteContent.querySelectorAll('.text-with-note')
+      for (const annotation of annotations) {
+        const element = annotation as HTMLElement
+        // 简单的位置匹配，实际可能需要更精确的定位
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        })
+        
+        // 高亮显示
+        element.style.backgroundColor = isDark ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'
+        setTimeout(() => {
+          element.style.backgroundColor = ''
+        }, 2000)
+        break // 只滚动到第一个匹配的
+      }
+    } catch (error) {
+      console.warn('滚动到备注位置出错:', error)
+    }
+  }
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -54,6 +95,7 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
   }, [showNumberMenu, showH1Menu, showH2Menu, showH3Menu])
   const [newTag, setNewTag] = useState('')
   const [showTagInput, setShowTagInput] = useState(false)
+  const [showTagSelector, setShowTagSelector] = useState(false)
   const [showImageUpload, setShowImageUpload] = useState(false)
   
   // 检查内容是否包含标题
@@ -73,7 +115,7 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
     setIsEditing(false)
     setShowTagInput(false)
     setNewTag('')
-  }, [note.id, note.title, note.content, note.tags]) // 依赖所有相关属性确保状态同步
+  }, [note.id, note.title, note.content, note.tags, setIsEditing]) // 依赖所有相关属性确保状态同步
 
   // 格式化日期
   const formatDate = (dateString: string) => {
@@ -86,13 +128,30 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
   }
 
   // 保存笔记
-  const handleSave = () => {
-    onSave({
-      title: title.trim(),
-      content: content.trim(),
-      tags: selectedTags.filter(tag => tag.trim() !== '')
-    })
-    setIsEditing(false)
+  const handleSave = async () => {
+    if (isSaving) return // 防止重复保存
+    
+    setIsSaving(true)
+    try {
+      // 如果是模板笔记，确保包含"模板"标签
+      const isTemplateNote = note.category === '模板' || note.tags?.includes('模板')
+      const finalTags = selectedTags.filter(tag => tag.trim() !== '')
+      if (isTemplateNote && !finalTags.includes('模板')) {
+        finalTags.push('模板')
+      }
+
+      onSave({
+        title: title.trim(),
+        content: content.trim(),
+        category: note.category, // 保留原始分类
+        tags: finalTags,
+        isPublished: note.isPublished // 保留原始发布状态
+      })
+      setIsEditing(false)
+    } finally {
+      // 延迟重置保存状态，防止快速重复点击
+      setTimeout(() => setIsSaving(false), 500)
+    }
   }
 
   // 添加标签
@@ -111,25 +170,74 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
 
   // 处理图片插入
   const handleImageInsert = (imageData: string) => {
-    const imgTag = `<img src="${imageData}" style="width: 100%; height: auto; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />`
-    const newContent = content ? content + '<br/>' + imgTag : imgTag
-    setContent(newContent)
-    setShowImageUpload(false)
+    const editorElement = document.querySelector('.note-content[contenteditable="true"]') as HTMLElement
+    if (!editorElement || !isEditing) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    // 获取当前光标位置
+    let range: Range
+    if (selection.rangeCount > 0) {
+      range = selection.getRangeAt(0)
+    } else {
+      // 如果没有选区，在内容末尾插入
+      range = document.createRange()
+      range.selectNodeContents(editorElement)
+      range.collapse(false)
+    }
+
+    // 创建图片元素
+    const imgTag = `<div><img src="${imageData}" style="width: 100%; height: auto; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" /></div><p><br></p>`
     
-    // 强制更新编辑器内容
-    setTimeout(() => {
-      const editorElement = document.querySelector('.note-content[contenteditable="true"]') as HTMLElement
-      if (editorElement && isEditing) {
-        editorElement.innerHTML = newContent
-        // 将光标移到末尾
-        const range = document.createRange()
-        const selection = window.getSelection()
-        range.selectNodeContents(editorElement)
-        range.collapse(false)
-        selection?.removeAllRanges()
-        selection?.addRange(range)
+    // 在光标位置插入图片
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = imgTag
+    const fragment = document.createDocumentFragment()
+    while (tempDiv.firstChild) {
+      fragment.appendChild(tempDiv.firstChild)
+    }
+    
+    range.deleteContents()
+    range.insertNode(fragment)
+    
+    // 将光标移动到图片后面
+    try {
+      const newRange = document.createRange()
+      // 查找刚插入的最后一个元素
+      const insertedElements = editorElement.querySelectorAll('img[src^="data:image"]')
+      const lastInsertedImg = insertedElements[insertedElements.length - 1]
+      
+      if (lastInsertedImg && lastInsertedImg.parentElement) {
+        // 找到图片容器的下一个兄弟元素（应该是<p><br></p>）
+        const nextElement = lastInsertedImg.parentElement.nextElementSibling
+        if (nextElement) {
+          newRange.setStart(nextElement, 0)
+          newRange.collapse(true)
+        } else {
+          // 如果没有下一个元素，在图片容器后创建新的段落
+          const newParagraph = document.createElement('p')
+          newParagraph.innerHTML = '<br>'
+          lastInsertedImg.parentElement.insertAdjacentElement('afterend', newParagraph)
+          newRange.setStart(newParagraph, 0)
+          newRange.collapse(true)
+        }
+        selection.removeAllRanges()
+        selection.addRange(newRange)
       }
-    }, 100)
+    } catch (e) {
+      console.log('光标定位失败，使用默认位置')
+      // 如果定位失败，将光标移到编辑器末尾
+      const fallbackRange = document.createRange()
+      fallbackRange.selectNodeContents(editorElement)
+      fallbackRange.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(fallbackRange)
+    }
+    
+    // 更新内容状态
+    setContent(editorElement.innerHTML)
+    setShowImageUpload(false)
   }
 
   // 中文数字映射
@@ -203,19 +311,20 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
       }
 
       const range = selection.getRangeAt(0)
+      
+      // 保存原始光标位置信息
+      const originalContainer = range.startContainer
+      const originalOffset = range.startOffset
+      
       let headingText = ''
-      let cursorOffset = 0
       
       // 根据级别设置不同格式
       if (level === 1) {
         headingText = `${chineseNumbers[number - 1]}、`
-        cursorOffset = headingText.length
       } else if (level === 2) {
         headingText = `（${number}）、`
-        cursorOffset = headingText.length
       } else if (level === 3) {
         headingText = `${number}. `
-        cursorOffset = headingText.length
       }
       
       const insertText = `<h${level} class="custom-heading-${level}">${headingText}</h${level}><p><br></p>`
@@ -231,25 +340,27 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
       }
       range.insertNode(fragment)
       
-      // 为新插入的标题添加ID并设置光标位置
+      // 为新插入的标题添加ID
       const headingElements = editorElement.querySelectorAll(`h${level}.custom-heading-${level}`)
       const lastHeading = headingElements[headingElements.length - 1] as HTMLElement
       if (lastHeading) {
         const timestamp = Date.now()
         const id = `heading-${timestamp}`
         lastHeading.id = id
-        
-        // 设置光标位置在标题文字后面
+      }
+      
+      // 尝试恢复原始光标位置，如果失败则保持当前位置
+      try {
         const newRange = document.createRange()
-        const textNode = lastHeading.firstChild
-        if (textNode && textNode.textContent) {
-          const maxOffset = textNode.textContent.length
-          const safeOffset = Math.min(cursorOffset, maxOffset)
-          newRange.setStart(textNode, safeOffset)
+        if (originalContainer && originalContainer.parentNode && editorElement.contains(originalContainer)) {
+          newRange.setStart(originalContainer, originalOffset)
           newRange.collapse(true)
           selection.removeAllRanges()
           selection.addRange(newRange)
         }
+      } catch (e) {
+        // 如果恢复失败，保持当前光标位置不变
+        console.log('保持当前光标位置')
       }
       
       setContent(editorElement.innerHTML)
@@ -277,16 +388,6 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
         // 显示H3选择菜单
         setShowH3Menu(true)
         return
-      case 'ul':
-        insertText = '● '
-        break
-      case 'ol':
-        // 显示编号选择菜单
-        setShowNumberMenu(true)
-        return
-      case 'checkbox':
-        insertText = '<div class="checkbox-item"><input type="checkbox" class="todo-checkbox"><span class="todo-text">待办事项</span></div><div><br></div>'
-        break
       case 'divider':
         insertText = '<hr style="border: none; border-top: 2px solid #ccc; margin: 20px 0;"><div><br></div>'
         break
@@ -327,6 +428,10 @@ function example() {
       case 'brackets':
         insertText = '<span style="border: 1px solid #ccc; padding: 2px 8px; border-radius: 4px; background: #f5f5f5;">「文本内容」</span>'
         break
+      case 'table':
+        // 显示表格配置弹窗
+        setShowTableModal(true)
+        return
     }
     
     // 获取当前光标位置或选区
@@ -556,6 +661,87 @@ function example() {
     }
   }
 
+  // 处理表格插入
+  const handleTableInsert = (config: TableConfig) => {
+    if (!isEditing) return
+    
+    const editorElement = document.querySelector('.note-content[contenteditable="true"]') as HTMLElement
+    if (!editorElement) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    // 获取当前光标位置
+    let range: Range
+    if (selection.rangeCount > 0) {
+      range = selection.getRangeAt(0)
+    } else {
+      // 如果没有选区，在内容末尾插入
+      range = document.createRange()
+      range.selectNodeContents(editorElement)
+      range.collapse(false)
+    }
+
+    // 生成HTML表格
+    const { rows, cols, hasHeader, theme } = config
+    
+    // 主题颜色配置
+    const themeColors = {
+      default: { header: '#f5f5f5', cell: '#ffffff', border: '#ddd' },
+      blue: { header: '#e3f2fd', cell: '#f3f9ff', border: '#90caf9' },
+      green: { header: '#e8f5e8', cell: '#f1f8f1', border: '#81c784' },
+      yellow: { header: '#fff8e1', cell: '#fffef7', border: '#ffb74d' },
+      gray: { header: '#f5f5f5', cell: '#fafafa', border: '#bdbdbd' }
+    }
+    
+    const colors = themeColors[theme as keyof typeof themeColors] || themeColors.default
+    
+    let tableHTML = `<table style="border-collapse: collapse; width: 100%; margin: 16px 0; border: 1px solid ${colors.border};">`
+    
+    if (hasHeader) {
+      tableHTML += '<thead><tr>'
+      for (let j = 0; j < cols; j++) {
+        tableHTML += `<th style="border: 1px solid ${colors.border}; padding: 8px; background-color: ${colors.header}; font-weight: bold;">列${j + 1}</th>`
+      }
+      tableHTML += '</tr></thead>'
+      
+      tableHTML += '<tbody>'
+      for (let i = 0; i < rows - 1; i++) {
+        tableHTML += '<tr>'
+        for (let j = 0; j < cols; j++) {
+          tableHTML += `<td style="border: 1px solid ${colors.border}; padding: 8px; background-color: ${colors.cell};">内容</td>`
+        }
+        tableHTML += '</tr>'
+      }
+      tableHTML += '</tbody>'
+    } else {
+      tableHTML += '<tbody>'
+      for (let i = 0; i < rows; i++) {
+        tableHTML += '<tr>'
+        for (let j = 0; j < cols; j++) {
+          tableHTML += `<td style="border: 1px solid ${colors.border}; padding: 8px; background-color: ${colors.cell};">内容</td>`
+        }
+        tableHTML += '</tr>'
+      }
+      tableHTML += '</tbody>'
+    }
+    
+    tableHTML += '</table><div><br></div>'
+
+    // 插入表格
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = tableHTML
+    const fragment = document.createDocumentFragment()
+    while (tempDiv.firstChild) {
+      fragment.appendChild(tempDiv.firstChild)
+    }
+    
+    range.insertNode(fragment)
+    
+    // 更新内容状态
+    setContent(editorElement.innerHTML)
+  }
+
   // 面包屑路径 - 构建完整的层级路径
   const buildBreadcrumbItems = () => {
     const items = [{ label: 'Home', href: '/' }]
@@ -563,7 +749,7 @@ function example() {
     // 如果有分类，需要构建完整的分类路径
     if (note.category && note.category !== '未分类') {
       // 从存储中获取所有分类来构建路径
-      const categories = JSON.parse(localStorage.getItem('categories') || '[]')
+      const categories = JSON.parse(localStorage.getItem('digital-garden-categories') || '[]')
       const findCategoryPath = (categoryName: string): string[] => {
         const category = categories.find((cat: { name: string; id: string; parentId?: string }) => cat.name === categoryName)
         if (!category) return [categoryName]
@@ -611,14 +797,17 @@ function example() {
               {/* 基础操作按钮 */}
               <button
                 onClick={handleSave}
-                title="保存"
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  isDark
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                disabled={isSaving}
+                title={isSaving ? "保存中..." : "保存"}
+                className={`p-2 rounded-lg transition-colors ${
+                  isSaving
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : isDark
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
                 }`}
               >
-                <Save className="w-4 h-4" />
+                <Save className="w-5 h-5" />
               </button>
               <button
                 onClick={() => {
@@ -628,15 +817,14 @@ function example() {
                   setSelectedTags(note.tags || [])
                 }}
                 title="取消"
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                className={`p-2 rounded-lg transition-colors ${
                   isDark
                     ? 'bg-gray-600 hover:bg-gray-700 text-white'
                     : 'bg-gray-500 hover:bg-gray-600 text-white'
                 }`}
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
-              
               {/* 分隔线 */}
               <div className={`w-px h-6 ${isDark ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
               
@@ -651,6 +839,17 @@ function example() {
                 }`}
               >
                 <Image className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleFormatContent('table')}
+                title="插入表格"
+                className={`flex items-center px-2 py-2 rounded-lg transition-colors ${
+                  isDark
+                    ? 'text-[#a0a0a0] hover:text-[#e0e0e0] hover:bg-[#2a2a2a]'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Table className="w-4 h-4" />
               </button>
               <div className="relative h1-menu-container">
                 <button
@@ -869,16 +1068,22 @@ function example() {
               }`}>
                 {note.title}
               </h1>
-              <button
-                onClick={() => setIsEditing(true)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  isDark
-                    ? 'text-[#a0a0a0] hover:text-[#e0e0e0] hover:bg-[#2a2a2a]'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <Edit className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <SingleNoteExport 
+                  note={note}
+                  isDark={isDark}
+                />
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                    isDark
+                      ? 'text-[#a0a0a0] hover:text-[#e0e0e0] hover:bg-[#2a2a2a]'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             
             {/* 日期 */}
@@ -920,8 +1125,8 @@ function example() {
                 </div>
               ))}
               
-              {showTagInput ? (
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                {showTagInput ? (
                   <input
                     type="text"
                     value={newTag}
@@ -930,7 +1135,9 @@ function example() {
                       if (e.key === 'Enter') handleAddTag()
                       if (e.key === 'Escape') setShowTagInput(false)
                     }}
-                    onBlur={handleAddTag}
+                    onBlur={() => {
+                      if (!newTag.trim()) setShowTagInput(false)
+                    }}
                     placeholder="添加标签..."
                     className={`px-2 py-1 text-sm rounded border ${
                       isDark
@@ -939,19 +1146,33 @@ function example() {
                     } focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                     autoFocus
                   />
-                </div>
-              ) : (
+                ) : (
+                  <button
+                    onClick={() => setShowTagInput(true)}
+                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm border-2 border-dashed transition-colors ${
+                      isDark
+                        ? 'border-[#404040] text-[#a0a0a0] hover:border-blue-500/50 hover:text-blue-400'
+                        : 'border-gray-300 text-gray-500 hover:border-blue-300 hover:text-blue-600'
+                    }`}
+                    title="添加新标签"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                )}
+                
+                {/* 标签云选择按钮 */}
                 <button
-                  onClick={() => setShowTagInput(true)}
+                  onClick={() => setShowTagSelector(true)}
                   className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm border-2 border-dashed transition-colors ${
                     isDark
                       ? 'border-[#404040] text-[#a0a0a0] hover:border-blue-500/50 hover:text-blue-400'
                       : 'border-gray-300 text-gray-500 hover:border-blue-300 hover:text-blue-600'
                   }`}
+                  title="从标签云选择"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Tag className="w-3 h-3" />
                 </button>
-              )}
+              </div>
             </>
           ) : (
             <TagDisplay tags={selectedTags} isDark={isDark} size="md" />
@@ -969,6 +1190,7 @@ function example() {
           className="min-h-96"
           notes={notes}
           onNoteSelect={onNoteSelect}
+          fontFamily={fontFamily}
         />
         
         {!isEditing && !content && (
@@ -988,6 +1210,16 @@ function example() {
         )}
       </div>
 
+      {/* 标签选择器 */}
+      {showTagSelector && (
+        <TagSelector
+          selectedTags={selectedTags}
+          onTagsChange={setSelectedTags}
+          onClose={() => setShowTagSelector(false)}
+          isDark={isDark}
+        />
+      )}
+
       {/* 图片上传组件 */}
       {showImageUpload && (
         <ImageUpload
@@ -996,6 +1228,14 @@ function example() {
           onClose={() => setShowImageUpload(false)}
         />
       )}
+
+      {/* 表格配置弹窗 */}
+      <TableConfigModal
+        isOpen={showTableModal}
+        onClose={() => setShowTableModal(false)}
+        onConfirm={handleTableInsert}
+        isDark={isDark}
+      />
     </div>
   )
 }
