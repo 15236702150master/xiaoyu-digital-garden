@@ -14,6 +14,8 @@ import TableOfContents from './TableOfContents'
 import SingleNoteExport from './SingleNoteExport'
 import TableConfigModal, { TableConfig } from './TableConfigModal'
 import { generateMarkdownTable, insertTableAtPosition } from '../utils/tableGenerator'
+import { useKeywordEasterEgg } from '../hooks/useKeywordEasterEgg'
+import { checkLongNote, checkNoteWithImage, checkFirstCategory } from '../utils/easterEggTriggers'
 
 interface NoteDetailViewProps {
   note: Note
@@ -41,6 +43,17 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
   const [showH3Menu, setShowH3Menu] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showTableModal, setShowTableModal] = useState(false)
+  
+  // 当笔记切换时，更新状态
+  useEffect(() => {
+    setContent(note.content)
+    setTitle(note.title)
+    setSelectedTags(note.tags || [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id]) // 只在笔记ID变化时更新，忽略其他依赖以避免编辑时的状态重置
+  
+  // 实时检测关键词彩蛋（仅在编辑模式下）
+  useKeywordEasterEgg(isEditing ? title : '', isEditing ? content : '')
 
   // 滚动到备注位置
   const handleScrollToAnnotation = (position: number) => {
@@ -140,13 +153,29 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
         finalTags.push('模板')
       }
 
+      const trimmedContent = content.trim()
+      
       onSave({
         title: title.trim(),
-        content: content.trim(),
+        content: trimmedContent,
         category: note.category, // 保留原始分类
         tags: finalTags,
         isPublished: note.isPublished // 保留原始发布状态
       })
+      
+      // 触发彩蛋检查
+      checkLongNote(trimmedContent.length)
+      
+      // 检查是否包含图片
+      if (trimmedContent.includes('![') || trimmedContent.includes('<img')) {
+        checkNoteWithImage()
+      }
+      
+      // 检查是否第一次使用分类
+      if (note.category && note.category !== '未分类') {
+        checkFirstCategory()
+      }
+      
       setIsEditing(false)
     } finally {
       // 延迟重置保存状态，防止快速重复点击

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { X, Plus, Edit2, Trash2, Tag as TagIcon, Hash } from 'lucide-react'
 import { Tag } from '@/types'
 import { TagsStorage } from '@/lib/storage'
+import { checkTagMaster } from '@/utils/easterEggTriggers'
 
 interface TagManagerProps {
   onClose: () => void
@@ -28,6 +29,9 @@ export default function TagManager({ onClose, isDark = false }: TagManagerProps)
   const loadTags = () => {
     const allTags = TagsStorage.getTags()
     setTags(allTags.sort((a, b) => b.count - a.count))
+    
+    // 检查是否创建了20个不同标签
+    checkTagMaster(allTags.length)
   }
 
   const handleAddTag = () => {

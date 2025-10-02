@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Download, FileText, Image, Copy, Check } from 'lucide-react'
 import { Note } from '../types'
+import { checkFirstExport } from '../utils/easterEggTriggers'
 
 interface SingleNoteExportProps {
   note: Note
@@ -13,6 +14,8 @@ export default function SingleNoteExport({ note, isDark }: SingleNoteExportProps
 
   // 导出为Markdown
   const exportAsMarkdown = () => {
+    checkFirstExport() // 触发第一次导出彩蛋
+    
     const markdownContent = `# ${note.title}
 
 **分类：** ${note.category}
@@ -39,6 +42,8 @@ ${note.content}
 
   // 导出为HTML
   const exportAsHTML = () => {
+    checkFirstExport() // 触发第一次导出彩蛋
+    
     const htmlContent = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>

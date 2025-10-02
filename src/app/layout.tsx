@@ -14,7 +14,7 @@ const merriweather = Merriweather({
 });
 
 export const metadata: Metadata = {
-  title: "小宇的数字花园",
+  title: "之涵的数字花园",
   description: "收集日常生活中碎片化知识记录的数字花园",
 };
 

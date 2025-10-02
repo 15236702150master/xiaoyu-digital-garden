@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { Upload, X, Image as ImageIcon, Clipboard } from 'lucide-react'
+import { checkFirstImageUpload } from '../utils/easterEggTriggers'
 
 interface ImageUploadProps {
   isDark: boolean
@@ -135,6 +136,8 @@ export default function ImageUpload({ isDark, onImageSelect, onClose }: ImageUpl
   const handleConfirm = () => {
     if (preview) {
       onImageSelect(preview)
+      // 触发首次上传图片彩蛋
+      checkFirstImageUpload()
       onClose()
     }
   }

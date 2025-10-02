@@ -1,10 +1,23 @@
 # 🌱 数字花园 (Digital Garden)
 
+<div align="center">
+
 一个基于 Next.js 15 构建的现代化个人知识管理系统，让你的想法和知识像花园一样自然生长。
 
 ![Digital Garden](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+
+[在线演示](https://goldencat-cloud.github.io/digital-garden/) | [功能特性](#-特性) | [快速开始](#-快速开始) | [彩蛋系统](#-彩蛋系统)
+
+</div>
+
+---
+
+## 📸 项目预览
+
+> 一个充满惊喜的知识管理系统，内置50+个彩蛋等你发现！
 
 ## ✨ 特性
 
@@ -34,6 +47,12 @@
 - **本地存储**：数据安全存储在浏览器本地
 - **备份恢复**：支持数据导出和导入
 - **多格式导出**：支持 Markdown、JSON 等格式
+
+### 🎮 趣味功能
+- **彩蛋系统**：多种隐藏彩蛋等你发现
+- **植物成长**：根据写作字数培养你的数字花园
+- **深夜陪伴**：深夜写作时的温馨小伙伴
+- **隐藏链接**：不经意间的小惊喜
 
 ## 🚀 快速开始
 
@@ -179,12 +198,84 @@ digital-garden/
 - 扩展存储功能到 `src/lib/storage.ts`
 - 添加新的笔记类型到 `src/types/`
 
+## 🎁 彩蛋系统
+
+本项目内置了**50+个彩蛋**，让写作过程充满惊喜！详见 [EASTER_EGGS.md](EASTER_EGGS.md)
+
+### 🌟 彩蛋亮点
+
+- 🎊 **互动彩蛋**：连续点击标题5次触发彩虹炮
+- 🌱 **植物成长**：写作字数越多，植物成长越茂盛（6个成长阶段）
+- 🌙 **深夜陪伴**：22:00-06:00 自动出现的小动物（5种可爱动物）
+- 🎮 **隐藏链接**：页面中隐藏的游戏和音乐入口（4个彩蛋）
+- 📝 **里程碑**：8个笔记数量里程碑彩蛋
+- 🔤 **关键词触发**：13个关键词彩蛋（emo、开心、摆烂等）
+- ⏰ **时间彩蛋**：7个特殊时间段彩蛋
+- 🏆 **成就系统**：标签大师、分类大师等成就彩蛋
+
+**每个彩蛋都有6种不同角色风格的祝福语 = 300+种不同体验！**
+
+## 🚀 部署指南
+
+### GitHub Pages 部署
+
+本项目已配置 GitHub Actions 自动部署：
+
+1. Fork 本仓库
+2. 在仓库设置中启用 GitHub Pages（Settings → Pages → Source: GitHub Actions）
+3. 推送代码到 main 分支，自动触发部署
+4. 访问 `https://your-username.github.io/digital-garden/`
+
+### 本地部署
+
+```bash
+# 构建生产版本
+npm run build
+
+# 导出静态文件
+npm run export
+
+# 部署 out 目录到任何静态托管服务
+```
+
+### 其他部署方式
+
+- **Vercel**：一键部署，自动 CI/CD
+- **Netlify**：拖拽 out 目录即可部署
+- **腾讯云 COS**：静态网站托管，CDN 加速（推荐）
+
 ## 📝 注意事项
 
-1. **数据存储**：数据存储在浏览器的 localStorage 中，清除浏览器数据会导致笔记丢失，请定期备份
-2. **浏览器兼容性**：建议使用现代浏览器（Chrome 90+, Firefox 88+, Safari 14+）
-3. **性能优化**：大量笔记时建议定期整理和归档
-4. **移动端使用**：响应式设计，支持移动设备，但桌面端体验更佳
+### ⚠️ 重要提示
+
+1. **数据存储**：
+   - 数据存储在浏览器的 localStorage 中
+   - 清除浏览器数据会导致笔记丢失
+   - **请定期使用导出功能备份数据**
+
+2. **浏览器兼容性**：
+   - Chrome 90+
+   - Firefox 88+
+   - Safari 14+
+   - Edge 90+
+
+3. **性能优化**：
+   - 大量笔记时建议定期整理和归档
+   - 图片建议压缩后上传
+   - 定期清理不需要的笔记
+
+4. **移动端使用**：
+   - 响应式设计，支持移动设备
+   - 桌面端体验更佳
+   - 触摸操作完全支持
+
+### 💡 使用建议
+
+- 📅 **每天写一点**：养成记录习惯，触发连续打卡彩蛋
+- 🏷️ **善用标签**：方便分类和检索
+- 🔗 **双向链接**：建立知识网络
+- 💾 **定期备份**：使用导出功能保存数据
+- 🎮 **探索彩蛋**：发现隐藏的惊喜
 
 ## 🤝 贡献指南
 

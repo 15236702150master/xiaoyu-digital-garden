@@ -18,6 +18,29 @@ export default function RecentNotes({ notes, isDark, onNoteSelect, selectedNote 
     }).format(date)
   }
 
+  // 清理和格式化笔记标题
+  const formatTitle = (title: string): string => {
+    if (!title || title.trim() === '') {
+      return '无标题'
+    }
+    
+    // 如果标题是图片数据，显示"[图片]"
+    if (title.startsWith('data:image')) {
+      return '[图片]'
+    }
+    
+    // 移除HTML标签
+    const withoutHtml = title.replace(/<[^>]*>/g, '')
+    
+    // 限制长度
+    const maxLength = 30
+    if (withoutHtml.length > maxLength) {
+      return withoutHtml.substring(0, maxLength) + '...'
+    }
+    
+    return withoutHtml
+  }
+
   const recentNotes = notes
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5)
@@ -47,7 +70,7 @@ export default function RecentNotes({ notes, isDark, onNoteSelect, selectedNote 
             `}
           >
             <FileText className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{note.title}</span>
+            <span className="truncate">{formatTitle(note.title)}</span>
           </div>
         ))}
         

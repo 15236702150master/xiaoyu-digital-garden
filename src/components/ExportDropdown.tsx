@@ -2,6 +2,7 @@
 
 import { Download } from 'lucide-react'
 import { Note, Category } from '../types'
+import { checkFirstExport } from '../utils/easterEggTriggers'
 
 interface ExportDropdownProps {
   notes: Note[]
@@ -11,6 +12,8 @@ interface ExportDropdownProps {
 
 export default function ExportDropdown({ notes, categories, isDark }: ExportDropdownProps) {
   const exportAsJSON = () => {
+    checkFirstExport() // 触发第一次导出彩蛋
+    
     const data = { notes, categories }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -22,6 +25,8 @@ export default function ExportDropdown({ notes, categories, isDark }: ExportDrop
   }
 
   const exportAsMarkdown = () => {
+    checkFirstExport() // 触发第一次导出彩蛋
+    
     let markdown = '# 数字花园导出\n\n'
     notes.forEach(note => {
       markdown += `## ${note.title}\n\n`

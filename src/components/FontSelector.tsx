@@ -1,6 +1,7 @@
 'use client'
 
 import { Type } from 'lucide-react'
+import { checkAllFontsUsed } from '../utils/easterEggTriggers'
 
 interface FontSelectorProps {
   isDark: boolean
@@ -63,7 +64,10 @@ export default function FontSelector({ isDark, onFontChange, currentFont }: Font
                     {categoryFonts.map(font => (
                       <button
                         key={font.value}
-                        onClick={() => onFontChange(font.value)}
+                        onClick={() => {
+                          onFontChange(font.value)
+                          checkAllFontsUsed(font.value)
+                        }}
                         className={`block w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
                           currentFont === font.value 
                             ? (isDark ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600')

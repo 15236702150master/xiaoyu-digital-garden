@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, X, FileText } from 'lucide-react'
 import { Note } from '@/types'
+import { checkFirstSearch } from '@/utils/easterEggTriggers'
 
 interface GlobalSearchProps {
   notes: Note[]
@@ -25,6 +26,9 @@ export default function GlobalSearch({ notes, isDark, onNoteSelect, isOpen, onCl
       setSelectedIndex(0)
       return
     }
+    
+    // 触发第一次搜索彩蛋
+    checkFirstSearch()
 
     const searchResults = notes.filter(note => {
       const searchTerm = query.toLowerCase()

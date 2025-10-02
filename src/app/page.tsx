@@ -22,6 +22,30 @@ import BacklinksPanel from '../components/BacklinksPanel'
 import AnnotationsPanel from '../components/AnnotationsPanel'
 import TemplateManager from '../components/TemplateManager'
 import FontSelector from '../components/FontSelector'
+import EasterEggModal from '../components/EasterEggModal'
+import EasterEggProgress from '../components/EasterEggProgress'
+import PlantGrowth from '../components/PlantGrowth'
+import NightCompanionSimple from '../components/NightCompanionSimple'
+import { 
+  setEasterEggCallback,
+  checkNoteMilestone,
+  checkTimeBasedEasterEgg,
+  checkKeywordEasterEgg,
+  checkRapidCreate,
+  checkDailyNoteCount,
+  checkConsecutiveDays,
+  checkRandomEasterEgg,
+  checkFirstTagUse,
+  checkFirstLinkUse,
+  initEasterEggChecks,
+  checkTagUsage,
+  checkLinkCount,
+  checkCategoryMaster,
+  checkWeeklyNotes
+} from '../utils/easterEggTriggers'
+import { rainbowConfetti, starsConfetti } from '../utils/confettiEffects'
+import { updateNoteWordCount, removeNoteWordCount, getStageConfig, recalculateAllWords } from '../utils/plantGrowthManager'
+import { PlantStage } from '../types/plantGrowth'
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([])
@@ -40,6 +64,58 @@ export default function Home() {
   // const [isCloudStorageOpen, setIsCloudStorageOpen] = useState(false) // 已删除云存储功能
   const [backgroundColor, setBackgroundColor] = useState('#f8f9fa')
   const [selectedFont, setSelectedFont] = useState('system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif')
+  
+  // 彩蛋系统状态
+  const [isEasterEggOpen, setIsEasterEggOpen] = useState(false)
+  const [easterEggTitle, setEasterEggTitle] = useState('')
+  const [easterEggContent, setEasterEggContent] = useState('')
+  const [easterEggIcon, setEasterEggIcon] = useState('🎉')
+  
+  // 点击标题彩蛋
+  const [titleClickCount, setTitleClickCount] = useState(0)
+  const [titleClickTimer, setTitleClickTimer] = useState<NodeJS.Timeout | null>(null)
+
+  // 点击标题彩蛋处理
+  const handleTitleClick = () => {
+    const newCount = titleClickCount + 1
+    setTitleClickCount(newCount)
+    
+    // 清除之前的计时器
+    if (titleClickTimer) {
+      clearTimeout(titleClickTimer)
+    }
+    
+    // 如果点击5次，触发彩虹彩蛋
+    if (newCount === 5) {
+      rainbowConfetti()
+      setEasterEggTitle('🌈 彩虹秘密！')
+      setEasterEggContent('哇！你发现了隐藏的彩虹彩蛋！\n\n连续点击标题5次才能触发哦~\n\n你真是个细心的探索者！🎨')
+      setEasterEggIcon('🌈')
+      setIsEasterEggOpen(true)
+      setTitleClickCount(0)
+      setTitleClickTimer(null)
+    } else {
+      // 设置2秒后重置计数
+      const timer = setTimeout(() => {
+        setTitleClickCount(0)
+      }, 2000)
+      setTitleClickTimer(timer)
+    }
+  }
+  
+  // 初始化彩蛋系统
+  useEffect(() => {
+    // 设置彩蛋触发回调
+    setEasterEggCallback((title, content, icon) => {
+      setEasterEggTitle(title)
+      setEasterEggContent(content)
+      setEasterEggIcon(icon)
+      setIsEasterEggOpen(true)
+    })
+    
+    // 初始化彩蛋检查
+    initEasterEggChecks()
+  }, [])
 
   // 初始化数据
   useEffect(() => {
@@ -51,6 +127,21 @@ export default function Home() {
     
     // 更新标签计数
     TagsStorage.updateTagCounts(loadedNotes)
+    
+    // 初始化植物生长系统 - 重新计算所有笔记的字数
+    if (loadedNotes.length > 0) {
+      recalculateAllWords(loadedNotes)
+      window.dispatchEvent(new Event('plantGrowthUpdated'))
+    }
+    
+    // 检查周笔记统计
+    const now = new Date()
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const weeklyNotes = loadedNotes.filter(note => {
+      const noteDate = new Date(note.createdAt)
+      return noteDate >= oneWeekAgo
+    })
+    checkWeeklyNotes(weeklyNotes.length)
     
     // 加载保存的字体设置
     const savedFont = localStorage.getItem('digital-garden-font')
@@ -122,12 +213,152 @@ export default function Home() {
       if (updatedNote) {
         setNotes(NotesStorage.getNotes())
         TagsStorage.updateTagCounts(NotesStorage.getNotes())
+        
+        // 更新植物生长字数
+        const result = updateNoteWordCount(editingNote.id, noteData.content || '')
+        
+        // 使用 setTimeout 确保状态已保存到 localStorage
+        setTimeout(() => {
+          // 通知植物组件更新
+          window.dispatchEvent(new Event('plantGrowthUpdated'))
+          
+          if (result.stageChanged && result.newStage && result.oldStage) {
+            // 触发阶段变化事件
+            window.dispatchEvent(new CustomEvent('plantStageChanged', {
+              detail: { newStage: result.newStage, oldStage: result.oldStage }
+            }))
+            
+            // 如果达到结果阶段，触发特殊彩蛋
+            if (result.newStage === 'fruit') {
+              setEasterEggTitle('🍎 硕果累累！')
+              setEasterEggContent('恭喜你！\n\n你的数字花园已经结出了丰硕的果实！\n\n总字数达到了 60,000 字！\n\n这是一个了不起的成就！\n\n继续创作，让知识之树更加茂盛！')
+              setEasterEggIcon('🍎')
+              setIsEasterEggOpen(true)
+              starsConfetti()
+            }
+          }
+        }, 0)
+        
+        // 彩蛋检测：关键词触发
+        checkKeywordEasterEgg(noteData.title || '', noteData.content || '')
+        
+        // 彩蛋检测：检查标签使用
+        if (noteData.tags && noteData.tags.length > 0) {
+          checkFirstTagUse()
+          
+          // 检查每个标签被使用的次数
+          const allNotes = NotesStorage.getNotes()
+          noteData.tags.forEach(tag => {
+            const tagCount = allNotes.filter(note => note.tags.includes(tag)).length
+            checkTagUsage(tag, tagCount)
+          })
+        }
+        
+        // 彩蛋检测：检查双向链接使用
+        if (noteData.content && noteData.content.includes('[[')) {
+          checkFirstLinkUse()
+          
+          // 统计双向链接数量
+          const linkMatches = noteData.content.match(/\[\[([^\]]+)\]\]/g)
+          if (linkMatches) {
+            checkLinkCount(linkMatches.length)
+          }
+        }
+        
+        // 彩蛋检测：检查分类使用
+        const allNotes = NotesStorage.getNotes()
+        const usedCategories = [...new Set(allNotes.map(note => note.category).filter(cat => cat !== '未分类'))]
+        checkCategoryMaster(usedCategories)
       }
     } else {
       // 创建新笔记
-      NotesStorage.addNote(noteData)
-      setNotes(NotesStorage.getNotes())
-      TagsStorage.updateTagCounts(NotesStorage.getNotes())
+      const newNote = NotesStorage.addNote(noteData)
+      const allNotes = NotesStorage.getNotes()
+      setNotes(allNotes)
+      TagsStorage.updateTagCounts(allNotes)
+      
+      // 更新植物生长字数（新笔记）
+      if (newNote) {
+        const result = updateNoteWordCount(newNote.id, noteData.content || '')
+        
+        // 使用 setTimeout 确保状态已保存到 localStorage
+        setTimeout(() => {
+          // 通知植物组件更新
+          window.dispatchEvent(new Event('plantGrowthUpdated'))
+          
+          if (result.stageChanged && result.newStage && result.oldStage) {
+            // 触发阶段变化事件
+            window.dispatchEvent(new CustomEvent('plantStageChanged', {
+              detail: { newStage: result.newStage, oldStage: result.oldStage }
+            }))
+            
+            // 如果达到结果阶段，触发特殊彩蛋
+            if (result.newStage === 'fruit') {
+              setEasterEggTitle('🍎 硕果累累！')
+              setEasterEggContent('恭喜你！\n\n你的数字花园已经结出了丰硕的果实！\n\n总字数达到了 60,000 字！\n\n这是一个了不起的成就！\n\n继续创作，让知识之树更加茂盛！')
+              setEasterEggIcon('🍎')
+              setIsEasterEggOpen(true)
+              starsConfetti()
+            }
+          }
+        }, 0)
+      }
+      
+      // 彩蛋检测：笔记数量里程碑
+      checkNoteMilestone(allNotes.length)
+      
+      // 彩蛋检测：快速连续创建
+      checkRapidCreate()
+      
+      // 彩蛋检测：单日创建数量
+      checkDailyNoteCount()
+      
+      // 彩蛋检测：连续天数
+      checkConsecutiveDays()
+      
+      // 彩蛋检测：关键词触发
+      checkKeywordEasterEgg(noteData.title || '', noteData.content || '')
+      
+      // 彩蛋检测：随机彩蛋（1%概率）
+      checkRandomEasterEgg()
+      
+      // 彩蛋检测：时间相关
+      checkTimeBasedEasterEgg()
+      
+      // 彩蛋检测：检查标签使用
+      if (noteData.tags && noteData.tags.length > 0) {
+        checkFirstTagUse()
+        
+        // 检查每个标签被使用的次数
+        noteData.tags.forEach(tag => {
+          const tagCount = allNotes.filter(note => note.tags.includes(tag)).length
+          checkTagUsage(tag, tagCount)
+        })
+      }
+      
+      // 彩蛋检测：检查双向链接使用
+      if (noteData.content && noteData.content.includes('[[')) {
+        checkFirstLinkUse()
+        
+        // 统计双向链接数量
+        const linkMatches = noteData.content.match(/\[\[([^\]]+)\]\]/g)
+        if (linkMatches) {
+          checkLinkCount(linkMatches.length)
+        }
+      }
+      
+      // 彩蛋检测：检查分类使用
+      const usedCategories = [...new Set(allNotes.map(note => note.category).filter(cat => cat !== '未分类'))]
+      checkCategoryMaster(usedCategories)
+      
+      // 彩蛋检测：检查周笔记统计
+      const now = new Date()
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const weeklyNotes = allNotes.filter(note => {
+        const noteDate = new Date(note.createdAt)
+        return noteDate >= oneWeekAgo
+      })
+      checkWeeklyNotes(weeklyNotes.length)
     }
     
     setIsEditorOpen(false)
@@ -138,6 +369,14 @@ export default function Home() {
   const handleDeleteNote = (id: string) => {
     const deleted = NotesStorage.deleteNote(id)
     if (deleted) {
+      // 更新植物生长字数（删除笔记）
+      removeNoteWordCount(id)
+      
+      // 使用 setTimeout 确保状态已保存
+      setTimeout(() => {
+        window.dispatchEvent(new Event('plantGrowthUpdated'))
+      }, 0)
+      
       setNotes(NotesStorage.getNotes())
       TagsStorage.updateTagCounts(NotesStorage.getNotes())
       // 如果删除的是当前选中的笔记，清除选中状态
@@ -259,13 +498,54 @@ export default function Home() {
       isPublished: true
     }
     
-    NotesStorage.addNote(noteData)
-    setNotes(NotesStorage.getNotes())
-    TagsStorage.updateTagCounts(NotesStorage.getNotes())
+    const createdNote = NotesStorage.addNote(noteData)
+    const allNotes = NotesStorage.getNotes()
+    setNotes(allNotes)
+    TagsStorage.updateTagCounts(allNotes)
+    
+    // 更新植物生长字数（新笔记，内容为空）
+    if (createdNote) {
+      updateNoteWordCount(createdNote.id, '')
+      
+      // 使用 setTimeout 确保状态已保存
+      setTimeout(() => {
+        window.dispatchEvent(new Event('plantGrowthUpdated'))
+      }, 0)
+    }
+    
+    // 彩蛋检测：笔记数量里程碑
+    checkNoteMilestone(allNotes.length)
+    
+    // 彩蛋检测：快速连续创建
+    checkRapidCreate()
+    
+    // 彩蛋检测：单日创建数量
+    checkDailyNoteCount()
+    
+    // 彩蛋检测：连续天数
+    checkConsecutiveDays()
+    
+    // 彩蛋检测：时间相关
+    checkTimeBasedEasterEgg()
+    
+    // 彩蛋检测：随机彩蛋（1%概率）
+    checkRandomEasterEgg()
+    
+    // 彩蛋检测：检查分类使用
+    const usedCategories = [...new Set(allNotes.map(note => note.category).filter(cat => cat !== '未分类'))]
+    checkCategoryMaster(usedCategories)
+    
+    // 彩蛋检测：检查周笔记统计
+    const now = new Date()
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const weeklyNotes = allNotes.filter(note => {
+      const noteDate = new Date(note.createdAt)
+      return noteDate >= oneWeekAgo
+    })
+    checkWeeklyNotes(weeklyNotes.length)
     
     // 选择新创建的笔记
-    const newNotes = NotesStorage.getNotes()
-    const newNote = newNotes.find(note => note.title === title && note.category === categoryName)
+    const newNote = allNotes.find(note => note.title === title && note.category === categoryName)
     if (newNote) {
       setSelectedNote(newNote)
       setSelectedCategory(categoryName)
@@ -285,9 +565,67 @@ export default function Home() {
     const newNote = NotesStorage.addNote(noteData)
     
     // 更新状态
-    const updatedNotes = NotesStorage.getNotes()
-    setNotes(updatedNotes)
-    TagsStorage.updateTagCounts(updatedNotes)
+    const allNotes = NotesStorage.getNotes()
+    setNotes(allNotes)
+    TagsStorage.updateTagCounts(allNotes)
+    
+    // 更新植物生长字数（模板笔记）
+    if (newNote) {
+      const result = updateNoteWordCount(newNote.id, template.content || '')
+      
+      // 使用 setTimeout 确保状态已保存到 localStorage
+      setTimeout(() => {
+        // 通知植物组件更新
+        window.dispatchEvent(new Event('plantGrowthUpdated'))
+        
+        if (result.stageChanged && result.newStage && result.oldStage) {
+          // 触发阶段变化事件
+          window.dispatchEvent(new CustomEvent('plantStageChanged', {
+            detail: { newStage: result.newStage, oldStage: result.oldStage }
+          }))
+          
+          // 如果达到结果阶段，触发特殊彩蛋
+          if (result.newStage === 'fruit') {
+            setEasterEggTitle('🍎 硕果累累！')
+            setEasterEggContent('恭喜你！\n\n你的数字花园已经结出了丰硕的果实！\n\n总字数达到了 60,000 字！\n\n这是一个了不起的成就！\n\n继续创作，让知识之树更加茂盛！')
+            setEasterEggIcon('🍎')
+            setIsEasterEggOpen(true)
+            starsConfetti()
+          }
+        }
+      }, 0)
+    }
+    
+    // 彩蛋检测：笔记数量里程碑
+    checkNoteMilestone(allNotes.length)
+    
+    // 彩蛋检测：快速连续创建
+    checkRapidCreate()
+    
+    // 彩蛋检测：单日创建数量
+    checkDailyNoteCount()
+    
+    // 彩蛋检测：连续天数
+    checkConsecutiveDays()
+    
+    // 彩蛋检测：时间相关
+    checkTimeBasedEasterEgg()
+    
+    // 彩蛋检测：随机彩蛋（1%概率）
+    checkRandomEasterEgg()
+    
+    // 彩蛋检测：检查分类使用
+    const usedCategories = [...new Set(allNotes.map(note => note.category).filter(cat => cat !== '未分类'))]
+    checkCategoryMaster(usedCategories)
+    
+    // 彩蛋检测：检查周笔记统计
+    const now = new Date()
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const weeklyNotes = allNotes.filter(note => {
+      const noteDate = new Date(note.createdAt)
+      return noteDate >= oneWeekAgo
+    })
+    checkWeeklyNotes(weeklyNotes.length)
     
     // 选择新创建的笔记
     if (newNote) {
@@ -381,9 +719,24 @@ export default function Home() {
       <header className="">
         <div className="max-w-7xl ml-4 mr-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-normal text-[#52575b]">
-              🌱小宇的数字花园
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 
+                className="text-xl font-normal text-[#52575b] cursor-pointer select-none hover:scale-105 transition-transform"
+                onClick={handleTitleClick}
+                title="试试连续点击我5次？"
+              >
+                🌱之涵的数字花园
+              </h1>
+              
+              {/* 隐藏彩蛋：游戏入口 */}
+              <a
+                href="https://moyu.aolifu.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-2 h-2 rounded-full bg-yellow-400 opacity-30 hover:opacity-100 hover:scale-150 transition-all duration-300 cursor-pointer"
+                title="🎮"
+              />
+            </div>
             
             <div className="flex items-center gap-4">
               <button
@@ -437,6 +790,7 @@ export default function Home() {
                 onFontChange={handleFontChange}
                 currentFont={selectedFont}
               />
+              <EasterEggProgress isDark={false} />
             </div>
           </div>
         </div>
@@ -476,6 +830,17 @@ export default function Home() {
                   selectedNote={selectedNote}
                 />
               </div>
+              
+              {/* 隐藏彩蛋：音乐入口1 */}
+              <div className="mt-8 flex items-center justify-center">
+                <a
+                  href="https://www.bilibili.com/video/BV1xN411x76o/?spm_id_from=333.337.search-card.all.click&vd_source=ab70b8ff38f91c6b463caa170bb1281f"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-1.5 h-1.5 rounded-full bg-pink-400 opacity-20 hover:opacity-100 hover:scale-[2] transition-all duration-300"
+                  title="🎵"
+                />
+              </div>
             </div>
           }
           centerPanel={
@@ -497,14 +862,23 @@ export default function Home() {
               />
             ) : (
               <div className="p-8 h-full flex items-center justify-center">
-                <div className="text-center">
+                <div className="text-center relative">
                   <div className="text-6xl mb-4">🌱</div>
                   <h2 className="text-2xl font-bold mb-4 text-[#2d3748]">
-                    欢迎来到小宇的数字花园
+                    欢迎来到之涵的数字花园
                   </h2>
                   <p className="text-lg text-[#666]">
                     在这里记录你的想法，让知识生根发芽
                   </p>
+                  
+                  {/* 隐藏彩蛋：游戏入口2 */}
+                  <a
+                    href="https://cn.freegame.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 w-2 h-2 rounded-full bg-green-400 opacity-25 hover:opacity-100 hover:scale-150 transition-all duration-300"
+                    title="🎯"
+                  />
                 </div>
               </div>
             )
@@ -548,6 +922,17 @@ export default function Home() {
                   isDark={false}
                 />
               )}
+              
+              {/* 隐藏彩蛋：音乐入口2 - 移到右侧 */}
+              <div className="flex justify-center mt-8">
+                <a
+                  href="https://www.bilibili.com/video/BV1m2pTzCEXc/?spm_id_from=333.337.search-card.all.click&vd_source=ab70b8ff38f91c6b463caa170bb1281f"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-1.5 h-1.5 rounded-full bg-purple-400 opacity-20 hover:opacity-100 hover:scale-[2] transition-all duration-300"
+                  title="🎶"
+                />
+              </div>
             </div>
           }
         />
@@ -594,6 +979,34 @@ export default function Home() {
           isDark={false}
         />
       )}
+
+      {/* 彩蛋弹窗 */}
+      <EasterEggModal
+        isOpen={isEasterEggOpen}
+        onClose={() => setIsEasterEggOpen(false)}
+        title={easterEggTitle}
+        content={easterEggContent}
+        icon={easterEggIcon}
+      />
+
+      {/* 植物生长系统 */}
+      <PlantGrowth
+        onStageChange={(newStage, oldStage) => {
+          const newConfig = getStageConfig(newStage as PlantStage)
+          const oldConfig = getStageConfig(oldStage as PlantStage)
+          
+          // 显示升级彩蛋（除了结果阶段，结果阶段已经单独处理）
+          if (newStage !== 'fruit') {
+            setEasterEggTitle(`${newConfig.emoji} 植物升级！`)
+            setEasterEggContent(`恭喜！你的植物成长了！\n\n从 ${oldConfig.name} 升级到 ${newConfig.name}！\n\n${newConfig.description}\n\n继续写作，让你的花园更加繁茂！`)
+            setEasterEggIcon(newConfig.emoji)
+            setIsEasterEggOpen(true)
+          }
+        }}
+      />
+
+      {/* 深夜陪伴模式 */}
+      <NightCompanionSimple />
 
       {/* 模板管理器 */}
       {isTemplateManagerOpen && (
