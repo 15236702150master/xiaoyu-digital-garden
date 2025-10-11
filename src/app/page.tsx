@@ -725,7 +725,7 @@ export default function Home() {
                 onClick={handleTitleClick}
                 title="试试连续点击我5次？"
               >
-                🌱之涵的数字花园
+                🌱小宇的数字花园
               </h1>
               
               {/* 隐藏彩蛋：游戏入口 */}
@@ -865,7 +865,7 @@ export default function Home() {
                 <div className="text-center relative">
                   <div className="text-6xl mb-4">🌱</div>
                   <h2 className="text-2xl font-bold mb-4 text-[#2d3748]">
-                    欢迎来到之涵的数字花园
+                    欢迎来到小宇的数字花园
                   </h2>
                   <p className="text-lg text-[#666]">
                     在这里记录你的想法，让知识生根发芽

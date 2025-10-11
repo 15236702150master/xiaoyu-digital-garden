@@ -1,4 +1,4 @@
-# 🌱 数字花园 (Digital Garden)
+# 🌱 小宇的数字花园 (Xiaoyu's Digital Garden)
 
 <div align="center">
 
@@ -9,7 +9,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-[在线演示](https://goldencat-cloud.github.io/digital-garden/) | [功能特性](#-特性) | [快速开始](#-快速开始) | [彩蛋系统](#-彩蛋系统)
+[在线演示](https://15236702150master.github.io/xiaoyu-digital-garden/) | [功能特性](#-特性) | [快速开始](#-快速开始) | [彩蛋系统](#-彩蛋系统)
 
 </div>
 
@@ -64,8 +64,8 @@
 
 1. **克隆项目**
 ```bash
-git clone https://github.com/15236702150master/digital-garden.git
-cd digital-garden
+git clone https://github.com/15236702150master/xiaoyu-digital-garden.git
+cd xiaoyu-digital-garden
 ```
 
 2. **安装依赖**
@@ -224,7 +224,7 @@ digital-garden/
 1. Fork 本仓库
 2. 在仓库设置中启用 GitHub Pages（Settings → Pages → Source: GitHub Actions）
 3. 推送代码到 main 分支，自动触发部署
-4. 访问 `https://your-username.github.io/digital-garden/`
+4. 访问 `https://your-username.github.io/xiaoyu-digital-garden/`
 
 ### 本地部署
 

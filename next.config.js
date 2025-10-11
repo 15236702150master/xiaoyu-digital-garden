@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     output: 'export',
-    basePath: '/digital-garden',
+    basePath: '/xiaoyu-digital-garden',
     trailingSlash: true,
     skipTrailingSlashRedirect: true,
     distDir: 'out',
