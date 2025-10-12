@@ -457,6 +457,15 @@ function example() {
       case 'brackets':
         insertText = '<span style="border: 1px solid #ccc; padding: 2px 8px; border-radius: 4px; background: #f5f5f5;">「文本内容」</span>'
         break
+      case 'ul':
+        insertText = '• '
+        break
+      case 'ol':
+        insertText = '1. '
+        break
+      case 'checkbox':
+        insertText = '☐ '
+        break
       case 'table':
         // 显示表格配置弹窗
         setShowTableModal(true)
@@ -500,8 +509,8 @@ function example() {
         }
       } else {
         // 其他格式直接插入
-        if (format === 'ul') {
-          // 项目符号直接插入文本
+        if (format === 'ul' || format === 'ol' || format === 'checkbox') {
+          // 项目符号、编号列表、复选框直接插入文本
           range.deleteContents()
           const textNode = document.createTextNode(insertText)
           range.insertNode(textNode)
@@ -512,47 +521,6 @@ function example() {
           newRange.collapse(true)
           selection.removeAllRanges()
           selection.addRange(newRange)
-        } else if (format === 'checkbox') {
-          // 复选框特殊处理
-          const tempDiv = document.createElement('div')
-          tempDiv.innerHTML = insertText
-          
-          range.deleteContents()
-          const fragment = document.createDocumentFragment()
-          while (tempDiv.firstChild) {
-            fragment.appendChild(tempDiv.firstChild)
-          }
-          range.insertNode(fragment)
-          
-          // 为复选框添加点击事件
-          setTimeout(() => {
-            const checkboxes = editorElement.querySelectorAll('.todo-checkbox')
-            checkboxes.forEach(checkbox => {
-              checkbox.addEventListener('change', (e) => {
-                const target = e.target as HTMLInputElement
-                const todoText = target.nextElementSibling as HTMLElement
-                if (target.checked) {
-                  todoText.style.textDecoration = 'line-through'
-                  todoText.style.opacity = '0.6'
-                } else {
-                  todoText.style.textDecoration = 'none'
-                  todoText.style.opacity = '1'
-                }
-                setContent(editorElement.innerHTML)
-              })
-            })
-            
-            // 设置光标在"待办事项"文字后面
-            const todoTexts = editorElement.querySelectorAll('.todo-text')
-            const lastTodoText = todoTexts[todoTexts.length - 1] as HTMLElement
-            if (lastTodoText && lastTodoText.firstChild) {
-              const newRange = document.createRange()
-              newRange.setStart(lastTodoText.firstChild, lastTodoText.textContent?.length || 0)
-              newRange.collapse(true)
-              selection.removeAllRanges()
-              selection.addRange(newRange)
-            }
-          }, 10)
         } else if (format === 'code') {
           // 代码块特殊处理
           const tempDiv = document.createElement('div')
@@ -1007,7 +975,7 @@ function example() {
               </button>
               <div className="relative number-menu-container">
                 <button
-                  onClick={() => handleFormatContent('ol')}
+                  onClick={() => setShowNumberMenu(!showNumberMenu)}
                   title="编号列表"
                   className={`flex items-center px-2 py-2 rounded-lg transition-colors ${
                     isDark

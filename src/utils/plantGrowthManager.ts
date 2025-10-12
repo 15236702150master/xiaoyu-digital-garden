@@ -83,10 +83,10 @@ export function countWords(text: string): number {
   return chineseChars.length + englishWords.length
 }
 
-// 根据字数获取当前阶段
-export function getStageByWords(words: number): PlantStage {
+// 根据笔记数量获取当前阶段
+export function getStageByNoteCount(noteCount: number): PlantStage {
   for (const stage of PLANT_STAGES) {
-    if (words >= stage.minWords && words <= stage.maxWords) {
+    if (noteCount >= stage.minNotes && noteCount <= stage.maxNotes) {
       return stage.stage
     }
   }
@@ -108,15 +108,15 @@ export function getNextStageConfig(currentStage: PlantStage) {
 }
 
 // 计算到下一阶段的进度
-export function getProgressToNextStage(words: number, currentStage: PlantStage): number {
+export function getProgressToNextStage(noteCount: number, currentStage: PlantStage): number {
   const nextStage = getNextStageConfig(currentStage)
   if (!nextStage) return 100 // 已经是最高阶段
   
   const currentConfig = getStageConfig(currentStage)
-  const currentMin = currentConfig.minWords
-  const nextMin = nextStage.minWords
+  const currentMin = currentConfig.minNotes
+  const nextMin = nextStage.minNotes
   
-  const progress = ((words - currentMin) / (nextMin - currentMin)) * 100
+  const progress = ((noteCount - currentMin) / (nextMin - currentMin)) * 100
   return Math.min(Math.max(progress, 0), 100)
 }
 
@@ -140,8 +140,9 @@ export function updateNoteWordCount(noteId: string, content: string): {
   // 更新总字数
   state.totalWords = state.totalWords - oldWordCount + newWordCount
   
-  // 检查阶段变化
-  const newStage = getStageByWords(state.totalWords)
+  // 检查阶段变化（基于笔记数量）
+  const noteCount = Object.keys(state.noteWordCounts).length
+  const newStage = getStageByNoteCount(noteCount)
   const stageChanged = newStage !== oldStage
   
   if (stageChanged) {
@@ -189,8 +190,9 @@ export function removeNoteWordCount(noteId: string): PlantGrowthState {
   // 删除记录
   delete state.noteWordCounts[noteId]
   
-  // 更新当前阶段
-  state.currentStage = getStageByWords(state.totalWords)
+  // 更新当前阶段（基于笔记数量）
+  const noteCount = Object.keys(state.noteWordCounts).length
+  state.currentStage = getStageByNoteCount(noteCount)
   
   // 保存状态
   savePlantGrowthState(state)
@@ -213,8 +215,9 @@ export function recalculateAllWords(notes: Array<{ id: string; content: string }
     state.totalWords += wordCount
   })
   
-  // 更新当前阶段
-  state.currentStage = getStageByWords(state.totalWords)
+  // 更新当前阶段（基于笔记数量）
+  const noteCount = Object.keys(state.noteWordCounts).length
+  state.currentStage = getStageByNoteCount(noteCount)
   
   // 保存状态
   savePlantGrowthState(state)

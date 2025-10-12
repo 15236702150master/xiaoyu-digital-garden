@@ -10,8 +10,8 @@ export interface PlantStageConfig {
   stage: PlantStage
   name: string
   emoji: string
-  minWords: number
-  maxWords: number
+  minNotes: number
+  maxNotes: number
   color: string
   description: string
 }
@@ -33,14 +33,14 @@ export interface PlantGrowthState {
   noteWordCounts: Record<string, number> // 每个笔记的字数记录 { noteId: wordCount }
 }
 
-// 植物阶段定义
+// 植物阶段定义（基于笔记数量）
 export const PLANT_STAGES: PlantStageConfig[] = [
   {
     stage: 'seed',
     name: '种子',
     emoji: '🌱',
-    minWords: 0,
-    maxWords: 999,
+    minNotes: 0,
+    maxNotes: 9,
     color: '#86efac',
     description: '一颗充满希望的种子，等待发芽'
   },
@@ -48,8 +48,8 @@ export const PLANT_STAGES: PlantStageConfig[] = [
     stage: 'sprout',
     name: '幼苗',
     emoji: '🌿',
-    minWords: 1000,
-    maxWords: 1999,
+    minNotes: 10,
+    maxNotes: 49,
     color: '#4ade80',
     description: '嫩绿的幼苗破土而出，开始成长'
   },
@@ -57,8 +57,8 @@ export const PLANT_STAGES: PlantStageConfig[] = [
     stage: 'pot',
     name: '小盆栽',
     emoji: '🪴',
-    minWords: 2000,
-    maxWords: 4999,
+    minNotes: 50,
+    maxNotes: 149,
     color: '#22c55e',
     description: '茁壮成长的小盆栽，充满生机'
   },
@@ -66,8 +66,8 @@ export const PLANT_STAGES: PlantStageConfig[] = [
     stage: 'tree',
     name: '小树',
     emoji: '🌳',
-    minWords: 5000,
-    maxWords: 9999,
+    minNotes: 150,
+    maxNotes: 299,
     color: '#16a34a',
     description: '挺拔的小树，枝繁叶茂'
   },
@@ -75,8 +75,8 @@ export const PLANT_STAGES: PlantStageConfig[] = [
     stage: 'flower',
     name: '开花',
     emoji: '🌸',
-    minWords: 10000,
-    maxWords: 59999,
+    minNotes: 300,
+    maxNotes: 499,
     color: '#ec4899',
     description: '美丽的花朵绽放，散发芬芳'
   },
@@ -84,8 +84,8 @@ export const PLANT_STAGES: PlantStageConfig[] = [
     stage: 'fruit',
     name: '结果',
     emoji: '🍎',
-    minWords: 60000,
-    maxWords: Infinity,
+    minNotes: 500,
+    maxNotes: Infinity,
     color: '#dc2626',
     description: '硕果累累，收获满满！'
   }

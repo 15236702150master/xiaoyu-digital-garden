@@ -61,7 +61,8 @@ export default function PlantGrowth({ onStageChange }: PlantGrowthProps) {
 
   const currentConfig = getStageConfig(state.currentStage)
   const nextConfig = getNextStageConfig(state.currentStage)
-  const progress = getProgressToNextStage(state.totalWords, state.currentStage)
+  const noteCount = Object.keys(state.noteWordCounts).length
+  const progress = getProgressToNextStage(noteCount, state.currentStage)
   const history = getStageHistory()
 
   return (
@@ -140,7 +141,7 @@ export default function PlantGrowth({ onStageChange }: PlantGrowthProps) {
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
                     <span>距离 {nextConfig.name}</span>
-                    <span>{nextConfig.minWords - state.totalWords} 字</span>
+                    <span>{nextConfig.minNotes - noteCount} 篇</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                     <div 

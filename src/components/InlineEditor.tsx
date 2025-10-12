@@ -435,6 +435,72 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     }
   }, [isEditing, content])
 
+  // 处理复选框切换
+  const handleCheckboxToggle = useCallback((event: MouseEvent) => {
+    if (!isEditing || !contentRef.current) return
+
+    const target = event.target as HTMLElement
+    if (!target) return
+
+    // 获取点击位置的文本内容
+    const selection = window.getSelection()
+    if (!selection) return
+
+    // 获取点击位置的文本节点
+    const range = document.caretRangeFromPoint(event.clientX, event.clientY)
+    if (!range) return
+
+    const textNode = range.startContainer
+    if (textNode.nodeType !== Node.TEXT_NODE) return
+
+    const text = textNode.textContent || ''
+    const offset = range.startOffset
+
+    // 检查点击位置附近是否有复选框符号
+    const checkboxUnchecked = '☐'
+    const checkboxChecked = '☑'
+    
+    // 查找复选框符号的位置
+    let checkboxIndex = -1
+    let isChecked = false
+    
+    // 检查点击位置前后的字符
+    for (let i = Math.max(0, offset - 2); i <= Math.min(text.length - 1, offset + 2); i++) {
+      if (text[i] === checkboxUnchecked) {
+        checkboxIndex = i
+        isChecked = false
+        break
+      } else if (text[i] === checkboxChecked) {
+        checkboxIndex = i
+        isChecked = true
+        break
+      }
+    }
+
+    if (checkboxIndex === -1) return
+
+    // 切换复选框状态
+    const newChar = isChecked ? checkboxUnchecked : checkboxChecked
+    const newText = text.substring(0, checkboxIndex) + newChar + text.substring(checkboxIndex + 1)
+    
+    // 更新文本节点
+    textNode.textContent = newText
+    
+    // 保持光标位置
+    const newRange = document.createRange()
+    newRange.setStart(textNode, offset)
+    newRange.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(newRange)
+    
+    // 触发内容变化
+    handleContentChange()
+    
+    // 阻止默认行为
+    event.preventDefault()
+    event.stopPropagation()
+  }, [isEditing, handleContentChange])
+
   // 安全的链接点击处理
   const handleLinkClick = useCallback((event: MouseEvent) => {
     try {
@@ -490,16 +556,18 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
 
     document.addEventListener('click', handleClickOutside)
     document.addEventListener('click', handleLinkClick)
+    document.addEventListener('click', handleCheckboxToggle)
     document.addEventListener('mouseover', handleAnnotationHover)
     document.addEventListener('selectionchange', handleGlobalSelection)
 
     return () => {
       document.removeEventListener('click', handleClickOutside)
       document.removeEventListener('click', handleLinkClick)
+      document.removeEventListener('click', handleCheckboxToggle)
       document.removeEventListener('mouseover', handleAnnotationHover)
       document.removeEventListener('selectionchange', handleGlobalSelection)
     }
-  }, [handleLinkClick, handleSelection, isEditing])
+  }, [handleLinkClick, handleCheckboxToggle, handleSelection, isEditing])
 
   return (
     <div className={`relative ${className}`}>
