@@ -535,13 +535,14 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     }
   }, [isEditing, onNoteSelect, notes])
 
-  // 处理链接右键菜单
-  const handleLinkContextMenu = useCallback((event: MouseEvent) => {
+  // 处理链接双击编辑
+  const handleLinkDoubleClick = useCallback((event: MouseEvent) => {
     if (!isEditing) return
     
     const target = event.target as HTMLElement
     if (target.tagName === 'A' && !target.classList.contains('note-link')) {
       event.preventDefault()
+      event.stopPropagation()
       setLinkContextMenu({
         x: event.clientX,
         y: event.clientY,
@@ -612,7 +613,7 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     document.addEventListener('click', handleClickOutside)
     document.addEventListener('click', handleLinkClick)
     document.addEventListener('click', handleCheckboxToggle)
-    document.addEventListener('contextmenu', handleLinkContextMenu)
+    document.addEventListener('dblclick', handleLinkDoubleClick)
     document.addEventListener('mouseover', handleAnnotationHover)
     document.addEventListener('selectionchange', handleGlobalSelection)
 
@@ -620,11 +621,11 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
       document.removeEventListener('click', handleClickOutside)
       document.removeEventListener('click', handleLinkClick)
       document.removeEventListener('click', handleCheckboxToggle)
-      document.removeEventListener('contextmenu', handleLinkContextMenu)
+      document.removeEventListener('dblclick', handleLinkDoubleClick)
       document.removeEventListener('mouseover', handleAnnotationHover)
       document.removeEventListener('selectionchange', handleGlobalSelection)
     }
-  }, [handleLinkClick, handleCheckboxToggle, handleLinkContextMenu, handleSelection, isEditing])
+  }, [handleLinkClick, handleCheckboxToggle, handleLinkDoubleClick, handleSelection, isEditing])
 
   return (
     <div className={`relative ${className}`}>
@@ -848,7 +849,7 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
         </div>
       )}
 
-      {/* 链接右键菜单 */}
+      {/* 链接编辑菜单（双击触发） */}
       {linkContextMenu && (
         <>
           <div
@@ -856,7 +857,7 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
             onClick={() => setLinkContextMenu(null)}
           />
           <div
-            className={`fixed z-50 min-w-[120px] rounded-lg shadow-lg border ${
+            className={`fixed z-50 min-w-[140px] rounded-lg shadow-lg border ${
               isDark
                 ? 'bg-[#2a2a2a] border-[#404040]'
                 : 'bg-white border-gray-200'
@@ -866,6 +867,13 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
               top: `${linkContextMenu.y}px`
             }}
           >
+            <div className={`px-3 py-2 text-xs border-b ${
+              isDark
+                ? 'text-[#a0a0a0] border-[#404040]'
+                : 'text-gray-500 border-gray-200'
+            }`}>
+              链接操作
+            </div>
             <button
               onClick={handleEditLink}
               className={`w-full px-4 py-2 text-left text-sm transition-colors ${
@@ -874,7 +882,7 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              编辑链接
+              ✏️ 编辑链接
             </button>
             <button
               onClick={handleRemoveLink}
@@ -884,7 +892,7 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              取消链接
+              🗑️ 取消链接
             </button>
           </div>
         </>
