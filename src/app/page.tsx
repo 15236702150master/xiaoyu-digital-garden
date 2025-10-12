@@ -476,16 +476,37 @@ export default function Home() {
 
   // 删除分类
   const handleDeleteCategory = (categoryName: string) => {
-    // 将该分类下的所有笔记移动到"未分类"
-    const categoryNotes = notes.filter(note => note.category === categoryName)
-    categoryNotes.forEach(note => {
+    // 获取要删除的分类及其所有子分类
+    const categoriesToDelete = new Set<string>([categoryName])
+    
+    const findChildCategories = (parentName: string) => {
+      const children = categories.filter(cat => {
+        const parent = categories.find(c => c.id === cat.parentId)
+        return parent?.name === parentName
+      })
+      children.forEach(child => {
+        categoriesToDelete.add(child.name)
+        findChildCategories(child.name)
+      })
+    }
+    
+    findChildCategories(categoryName)
+    
+    // 将所有相关分类下的笔记移动到"未分类"
+    const affectedNotes = notes.filter(note => categoriesToDelete.has(note.category))
+    affectedNotes.forEach(note => {
       NotesStorage.updateNote(note.id, { ...note, category: '未分类' })
     })
     
-    // 删除分类
+    // 删除分类（会递归删除所有子分类）
     CategoriesStorage.deleteCategory(categoryName)
     setCategories(CategoriesStorage.getCategories())
     setNotes(NotesStorage.getNotes())
+    
+    // 如果当前选中的笔记属于被删除的分类，清除选中状态
+    if (selectedNote && categoriesToDelete.has(selectedNote.category)) {
+      setSelectedNote(undefined)
+    }
     
     // 如果当前选中的分类被删除，切换到"全部"
     if (selectedCategory === categoryName) {
