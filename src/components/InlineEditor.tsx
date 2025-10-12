@@ -34,6 +34,7 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([])
   const [selectedNoteRange, setSelectedNoteRange] = useState<Range | null>(null)
   const [showTableModal, setShowTableModal] = useState(false)
+  const [linkContextMenu, setLinkContextMenu] = useState<{ x: number; y: number; link: HTMLAnchorElement } | null>(null)
 
   // 格式化按钮配置
   const formatButtons: FormatButton[] = [
@@ -504,13 +505,12 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
   // 安全的链接点击处理
   const handleLinkClick = useCallback((event: MouseEvent) => {
     try {
-      if (isEditing || !onNoteSelect || !notes) return
-
       const target = event.target as HTMLElement
       if (!target) return
 
       // 检查是否点击了笔记链接元素
       if (target.classList.contains('note-link')) {
+        if (isEditing || !onNoteSelect || !notes) return
         event.preventDefault()
         event.stopPropagation()
 
@@ -522,10 +522,65 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
           }
         }
       }
+      // 处理普通链接点击（在新标签页打开）
+      else if (target.tagName === 'A') {
+        const link = target as HTMLAnchorElement
+        if (link.href && !link.href.startsWith('#')) {
+          event.preventDefault()
+          window.open(link.href, '_blank', 'noopener,noreferrer')
+        }
+      }
     } catch (error) {
       console.error('处理链接点击时出错:', error)
     }
   }, [isEditing, onNoteSelect, notes])
+
+  // 处理链接右键菜单
+  const handleLinkContextMenu = useCallback((event: MouseEvent) => {
+    if (!isEditing) return
+    
+    const target = event.target as HTMLElement
+    if (target.tagName === 'A' && !target.classList.contains('note-link')) {
+      event.preventDefault()
+      setLinkContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        link: target as HTMLAnchorElement
+      })
+    }
+  }, [isEditing])
+
+  // 编辑链接
+  const handleEditLink = useCallback(() => {
+    if (!linkContextMenu) return
+    
+    const link = linkContextMenu.link
+    const newUrl = prompt('请输入新的链接地址:', link.href)
+    
+    if (newUrl && newUrl !== link.href) {
+      link.href = newUrl
+      if (contentRef.current) {
+        onChange(contentRef.current.innerHTML)
+      }
+    }
+    
+    setLinkContextMenu(null)
+  }, [linkContextMenu, onChange])
+
+  // 取消链接
+  const handleRemoveLink = useCallback(() => {
+    if (!linkContextMenu) return
+    
+    const link = linkContextMenu.link
+    const textNode = document.createTextNode(link.textContent || '')
+    link.parentNode?.replaceChild(textNode, link)
+    
+    if (contentRef.current) {
+      onChange(contentRef.current.innerHTML)
+    }
+    
+    setLinkContextMenu(null)
+  }, [linkContextMenu, onChange])
 
   // 监听选择变化和链接点击
   useEffect(() => {
@@ -557,6 +612,7 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     document.addEventListener('click', handleClickOutside)
     document.addEventListener('click', handleLinkClick)
     document.addEventListener('click', handleCheckboxToggle)
+    document.addEventListener('contextmenu', handleLinkContextMenu)
     document.addEventListener('mouseover', handleAnnotationHover)
     document.addEventListener('selectionchange', handleGlobalSelection)
 
@@ -564,10 +620,11 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
       document.removeEventListener('click', handleClickOutside)
       document.removeEventListener('click', handleLinkClick)
       document.removeEventListener('click', handleCheckboxToggle)
+      document.removeEventListener('contextmenu', handleLinkContextMenu)
       document.removeEventListener('mouseover', handleAnnotationHover)
       document.removeEventListener('selectionchange', handleGlobalSelection)
     }
-  }, [handleLinkClick, handleCheckboxToggle, handleSelection, isEditing])
+  }, [handleLinkClick, handleCheckboxToggle, handleLinkContextMenu, handleSelection, isEditing])
 
   return (
     <div className={`relative ${className}`}>
@@ -789,6 +846,48 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
             </div>
           </div>
         </div>
+      )}
+
+      {/* 链接右键菜单 */}
+      {linkContextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setLinkContextMenu(null)}
+          />
+          <div
+            className={`fixed z-50 min-w-[120px] rounded-lg shadow-lg border ${
+              isDark
+                ? 'bg-[#2a2a2a] border-[#404040]'
+                : 'bg-white border-gray-200'
+            }`}
+            style={{
+              left: `${linkContextMenu.x}px`,
+              top: `${linkContextMenu.y}px`
+            }}
+          >
+            <button
+              onClick={handleEditLink}
+              className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                isDark
+                  ? 'text-[#e0e0e0] hover:bg-[#3a3a3a]'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              编辑链接
+            </button>
+            <button
+              onClick={handleRemoveLink}
+              className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                isDark
+                  ? 'text-[#e0e0e0] hover:bg-[#3a3a3a]'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              取消链接
+            </button>
+          </div>
+        </>
       )}
 
       {/* 表格配置弹窗 */}
