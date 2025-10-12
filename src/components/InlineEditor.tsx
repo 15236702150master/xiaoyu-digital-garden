@@ -226,7 +226,7 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
       case 'link':
         const url = prompt('请输入链接地址:')
         if (url) {
-          formattedContent = `<a href="${url}" style="color: #3b82f6; text-decoration: underline;">${selectedText}</a>`
+          formattedContent = `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline;">${selectedText}</a>`
         } else {
           return
         }
