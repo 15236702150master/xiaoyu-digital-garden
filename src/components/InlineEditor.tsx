@@ -617,6 +617,9 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
 
   // 监听选择变化和链接点击
   useEffect(() => {
+    const contentElement = contentRef.current
+    if (!contentElement) return
+
     const handleClickOutside = (event: MouseEvent) => {
       if (toolbarRef.current && !toolbarRef.current.contains(event.target as Node)) {
         setShowToolbar(false)
@@ -646,18 +649,21 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     document.addEventListener('click', handleLinkClick)
     document.addEventListener('click', handleCheckboxToggle)
     document.addEventListener('mouseover', handleAnnotationHover)
-    document.addEventListener('mouseover', handleLinkHover)
-    document.addEventListener('mouseout', handleLinkLeave)
     document.addEventListener('selectionchange', handleGlobalSelection)
+    
+    // 在内容区域添加链接悬停监听
+    contentElement.addEventListener('mouseover', handleLinkHover as EventListener)
+    contentElement.addEventListener('mouseout', handleLinkLeave as EventListener)
 
     return () => {
       document.removeEventListener('click', handleClickOutside)
       document.removeEventListener('click', handleLinkClick)
       document.removeEventListener('click', handleCheckboxToggle)
       document.removeEventListener('mouseover', handleAnnotationHover)
-      document.removeEventListener('mouseover', handleLinkHover)
-      document.removeEventListener('mouseout', handleLinkLeave)
       document.removeEventListener('selectionchange', handleGlobalSelection)
+      
+      contentElement.removeEventListener('mouseover', handleLinkHover as EventListener)
+      contentElement.removeEventListener('mouseout', handleLinkLeave as EventListener)
       
       // 清理定时器
       if (linkHoverTimeoutRef.current) {
