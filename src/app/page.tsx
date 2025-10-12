@@ -20,6 +20,7 @@ import NoteEditor from '../components/NoteEditor'
 import TableOfContents from '../components/TableOfContents'
 import BacklinksPanel from '../components/BacklinksPanel'
 import AnnotationsPanel from '../components/AnnotationsPanel'
+import LinksPanel from '../components/LinksPanel'
 import TemplateManager from '../components/TemplateManager'
 import FontSelector from '../components/FontSelector'
 import EasterEggModal from '../components/EasterEggModal'
@@ -951,6 +952,21 @@ export default function Home() {
               {/* 备注面板 - 仅在选中笔记时显示 */}
               {selectedNote && (
                 <AnnotationsPanel
+                  currentNote={selectedNote}
+                  onNoteUpdate={(noteData) => {
+                    const updatedNote = NotesStorage.updateNote(selectedNote.id, noteData)
+                    if (updatedNote) {
+                      setNotes(NotesStorage.getNotes())
+                      setSelectedNote(updatedNote)
+                    }
+                  }}
+                  isDark={false}
+                />
+              )}
+
+              {/* 链接面板 - 仅在选中笔记时显示 */}
+              {selectedNote && (
+                <LinksPanel
                   currentNote={selectedNote}
                   onNoteUpdate={(noteData) => {
                     const updatedNote = NotesStorage.updateNote(selectedNote.id, noteData)
