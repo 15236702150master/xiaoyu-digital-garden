@@ -34,8 +34,6 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([])
   const [selectedNoteRange, setSelectedNoteRange] = useState<Range | null>(null)
   const [showTableModal, setShowTableModal] = useState(false)
-  const [linkHoverToolbar, setLinkHoverToolbar] = useState<{ x: number; y: number; link: HTMLAnchorElement } | null>(null)
-  const linkHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // 格式化按钮配置
   const formatButtons: FormatButton[] = [
@@ -536,84 +534,6 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     }
   }, [isEditing, onNoteSelect, notes])
 
-  // 处理链接悬停显示工具栏
-  const handleLinkHover = useCallback((event: MouseEvent) => {
-    if (!isEditing) return
-    
-    const target = event.target as HTMLElement
-    if (target.tagName === 'A' && !target.classList.contains('note-link')) {
-      // 清除之前的定时器
-      if (linkHoverTimeoutRef.current) {
-        clearTimeout(linkHoverTimeoutRef.current)
-      }
-      
-      // 延迟显示工具栏
-      linkHoverTimeoutRef.current = setTimeout(() => {
-        const rect = target.getBoundingClientRect()
-        setLinkHoverToolbar({
-          x: rect.left + rect.width / 2,
-          y: rect.top - 10,
-          link: target as HTMLAnchorElement
-        })
-      }, 300) // 300ms 延迟
-    }
-  }, [isEditing])
-
-  // 处理鼠标离开链接
-  const handleLinkLeave = useCallback((event: MouseEvent) => {
-    const target = event.target as HTMLElement
-    const relatedTarget = event.relatedTarget as HTMLElement
-    
-    // 如果鼠标移到工具栏上，不隐藏
-    if (relatedTarget && relatedTarget.closest('.link-hover-toolbar')) {
-      return
-    }
-    
-    if (target.tagName === 'A') {
-      // 清除定时器
-      if (linkHoverTimeoutRef.current) {
-        clearTimeout(linkHoverTimeoutRef.current)
-        linkHoverTimeoutRef.current = null
-      }
-      
-      // 延迟隐藏，给用户时间移动到工具栏
-      setTimeout(() => {
-        setLinkHoverToolbar(null)
-      }, 200)
-    }
-  }, [])
-
-  // 编辑链接
-  const handleEditLink = useCallback(() => {
-    if (!linkHoverToolbar) return
-    
-    const link = linkHoverToolbar.link
-    const newUrl = prompt('请输入新的链接地址:', link.href)
-    
-    if (newUrl && newUrl !== link.href) {
-      link.href = newUrl
-      if (contentRef.current) {
-        onChange(contentRef.current.innerHTML)
-      }
-    }
-    
-    setLinkHoverToolbar(null)
-  }, [linkHoverToolbar, onChange])
-
-  // 取消链接
-  const handleRemoveLink = useCallback(() => {
-    if (!linkHoverToolbar) return
-    
-    const link = linkHoverToolbar.link
-    const textNode = document.createTextNode(link.textContent || '')
-    link.parentNode?.replaceChild(textNode, link)
-    
-    if (contentRef.current) {
-      onChange(contentRef.current.innerHTML)
-    }
-    
-    setLinkHoverToolbar(null)
-  }, [linkHoverToolbar, onChange])
 
   // 监听选择变化和链接点击
   useEffect(() => {
@@ -650,10 +570,6 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
     document.addEventListener('click', handleCheckboxToggle)
     document.addEventListener('mouseover', handleAnnotationHover)
     document.addEventListener('selectionchange', handleGlobalSelection)
-    
-    // 在内容区域添加链接悬停监听
-    contentElement.addEventListener('mouseover', handleLinkHover as EventListener)
-    contentElement.addEventListener('mouseout', handleLinkLeave as EventListener)
 
     return () => {
       document.removeEventListener('click', handleClickOutside)
@@ -661,16 +577,8 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
       document.removeEventListener('click', handleCheckboxToggle)
       document.removeEventListener('mouseover', handleAnnotationHover)
       document.removeEventListener('selectionchange', handleGlobalSelection)
-      
-      contentElement.removeEventListener('mouseover', handleLinkHover as EventListener)
-      contentElement.removeEventListener('mouseout', handleLinkLeave as EventListener)
-      
-      // 清理定时器
-      if (linkHoverTimeoutRef.current) {
-        clearTimeout(linkHoverTimeoutRef.current)
-      }
     }
-  }, [handleLinkClick, handleCheckboxToggle, handleLinkHover, handleLinkLeave, handleSelection, isEditing])
+  }, [handleLinkClick, handleCheckboxToggle, handleSelection, isEditing])
 
   return (
     <div className={`relative ${className}`}>
@@ -891,52 +799,6 @@ export default function InlineEditor({ content, onChange, isEditing, isDark = fa
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* 链接悬浮工具栏 */}
-      {linkHoverToolbar && (
-        <div
-          className={`link-hover-toolbar fixed z-50 flex items-center gap-1 px-2 py-1 rounded-lg shadow-lg border ${
-            isDark
-              ? 'bg-[#2a2a2a] border-[#404040]'
-              : 'bg-white border-gray-200'
-          }`}
-          style={{
-            left: `${linkHoverToolbar.x}px`,
-            top: `${linkHoverToolbar.y}px`,
-            transform: 'translate(-50%, -100%)'
-          }}
-          onMouseLeave={() => {
-            setTimeout(() => setLinkHoverToolbar(null), 200)
-          }}
-        >
-          <button
-            onClick={handleEditLink}
-            title="编辑链接"
-            className={`p-1.5 rounded transition-colors ${
-              isDark
-                ? 'text-[#e0e0e0] hover:bg-[#3a3a3a]'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-          <button
-            onClick={handleRemoveLink}
-            title="取消链接"
-            className={`p-1.5 rounded transition-colors ${
-              isDark
-                ? 'text-[#e0e0e0] hover:bg-[#3a3a3a]'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
       )}
 
