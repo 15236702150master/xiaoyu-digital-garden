@@ -185,7 +185,7 @@ export default function TreeNavigation({
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
           isExpanded && (hasContent || editingTitle?.categoryName === category.name) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         }`}>
-          <div className="space-y-0.5 mt-0.5">
+          <div className="space-y-0 mt-0">
             {/* 渲染笔记 */}
             {categoryNotes.map((note) => (
               editingNote?.noteId === note.id ? (
@@ -275,7 +275,7 @@ export default function TreeNavigation({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {/* 搜索框 */}
       <div className="relative mb-4">
         <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
@@ -349,7 +349,7 @@ export default function TreeNavigation({
       )}
 
       {/* 分类导航 */}
-      <div className="space-y-0.5">
+      <div className="space-y-0">
         {buildCategoryTree().map(category => renderCategoryItem(category))}
       </div>
 
