@@ -40,6 +40,8 @@ export default function LinksPanel({
     const linkElements = doc.querySelectorAll('a:not(.note-link)')
     
     const links: LinkItem[] = []
+    let needsUpdate = false
+    
     linkElements.forEach((element, index) => {
       const anchor = element as HTMLAnchorElement
       const url = anchor.href
@@ -51,6 +53,7 @@ export default function LinksPanel({
         // 为链接添加唯一标识
         if (!existingId) {
           anchor.setAttribute('data-link-id', id)
+          needsUpdate = true
         }
         
         links.push({
@@ -61,6 +64,14 @@ export default function LinksPanel({
         })
       }
     })
+    
+    // 如果添加了新的 ID，更新笔记内容
+    if (needsUpdate) {
+      const updatedContent = doc.body.innerHTML
+      setTimeout(() => {
+        onNoteUpdate({ content: updatedContent })
+      }, 0)
+    }
     
     return links
   }

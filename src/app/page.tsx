@@ -1103,6 +1103,13 @@ export default function Home() {
           padding: 2px 4px;
           transition: all 0.3s ease;
         }
+        
+        .highlight-link {
+          background: rgba(59, 130, 246, 0.3) !important;
+          border-radius: 4px;
+          padding: 2px 4px;
+          transition: all 0.3s ease;
+        }
       `}</style>
     </div>
   )
