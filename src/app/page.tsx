@@ -120,7 +120,26 @@ export default function Home() {
   // 初始化数据
   useEffect(() => {
     const loadedNotes = NotesStorage.getNotes()
-    const loadedCategories = CategoriesStorage.getCategories()
+    let loadedCategories = CategoriesStorage.getCategories()
+    
+    // 数据一致性检查：确保所有笔记的分类都存在
+    const categoryNames = new Set(loadedCategories.map(cat => cat.name))
+    const missingCategories = new Set<string>()
+    
+    loadedNotes.forEach(note => {
+      if (note.category && !categoryNames.has(note.category)) {
+        missingCategories.add(note.category)
+      }
+    })
+    
+    // 自动创建缺失的分类
+    if (missingCategories.size > 0) {
+      console.log('发现缺失的分类，自动创建：', Array.from(missingCategories))
+      missingCategories.forEach(categoryName => {
+        CategoriesStorage.addCategory(categoryName)
+      })
+      loadedCategories = CategoriesStorage.getCategories()
+    }
     
     setNotes(loadedNotes)
     setCategories(loadedCategories)

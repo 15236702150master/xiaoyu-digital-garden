@@ -41,6 +41,33 @@ export default function TreeNavigation({
 }: TreeNavigationProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // 当选中笔记变化时，自动展开其所在分类
+  React.useEffect(() => {
+    if (selectedNote) {
+      setExpandedCategories(prev => {
+        const newExpanded = new Set(prev)
+        newExpanded.add(selectedNote.category)
+        
+        // 同时展开所有父分类
+        const category = categories.find(c => c.name === selectedNote.category)
+        if (category?.parentId) {
+          const findAndExpandParents = (catId: string) => {
+            const parent = categories.find(c => c.id === catId)
+            if (parent) {
+              newExpanded.add(parent.name)
+              if (parent.parentId) {
+                findAndExpandParents(parent.parentId)
+              }
+            }
+          }
+          findAndExpandParents(category.parentId)
+        }
+        
+        return newExpanded
+      })
+    }
+  }, [selectedNote, categories])
   const [contextMenu, setContextMenu] = useState<{ 
     x: number; 
     y: number; 
