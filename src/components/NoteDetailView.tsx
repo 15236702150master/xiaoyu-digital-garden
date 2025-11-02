@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   ArrowLeft, Edit, Save, X, Upload, Bold, Italic, Underline, Highlighter, Code, Link, Quote, StickyNote, Indent, Type, 
   Heading1, Heading2, Heading3, List, ListOrdered, CheckSquare, Minus, Code2, BookOpen, ChevronDown, 
@@ -43,33 +43,6 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
   const [showH3Menu, setShowH3Menu] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showTableModal, setShowTableModal] = useState(false)
-  const [isToolbarFixed, setIsToolbarFixed] = useState(false)
-  const toolbarSentinelRef = useRef<HTMLDivElement>(null)
-  
-  // 使用 IntersectionObserver 监听工具栏是否离开视口
-  useEffect(() => {
-    if (!isEditing || !toolbarSentinelRef.current) {
-      setIsToolbarFixed(false)
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // 当哨兵元素离开视口时，固定工具栏
-        setIsToolbarFixed(!entry.isIntersecting)
-      },
-      {
-        threshold: 0,
-        rootMargin: '-1px 0px 0px 0px' // 稍微提前触发
-      }
-    )
-
-    observer.observe(toolbarSentinelRef.current)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [isEditing])
   
   // 当笔记切换时，更新状态
   useEffect(() => {
@@ -817,13 +790,11 @@ function example() {
               } focus:ring-2 focus:ring-blue-500/20 rounded px-2 py-1`}
               placeholder="笔记标题..."
             />
-            {/* 哨兵元素 - 用于检测工具栏是否应该固定 */}
-            <div ref={toolbarSentinelRef} className="h-0" />
-            {/* 固定工具栏 */}
-            <div className={`flex items-center gap-2 flex-wrap transition-all duration-300 ${
-              isToolbarFixed 
-                ? 'sticky top-0 z-40 shadow-md backdrop-blur-md -mx-6 px-6 py-3 ' + (isDark ? 'bg-[#1a1a1a]/95 border-b border-[#404040]' : 'bg-white/95 border-b border-gray-200')
-                : ''
+            {/* 占位符 - 防止内容被固定工具栏遮挡 */}
+            <div className="h-16"></div>
+            {/* 固定工具栏 - 始终固定在顶部 */}
+            <div className={`flex items-center gap-2 flex-wrap fixed top-0 left-0 right-0 z-50 shadow-md backdrop-blur-md px-6 py-3 ${
+              isDark ? 'bg-[#1a1a1a]/95 border-b border-[#404040]' : 'bg-white/95 border-b border-gray-200'
             }`}>
               {/* 基础操作按钮 */}
               <button
@@ -1090,8 +1061,6 @@ function example() {
                 <Brackets className="w-4 h-4" />
               </button>
             </div>
-            {/* 占位符，防止内容跳动 */}
-            {isToolbarFixed && <div className="h-14"></div>}
           </div>
         ) : (
           <div>
@@ -1108,7 +1077,8 @@ function example() {
                 />
                 <button
                   onClick={() => setIsEditing(true)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  title="编辑"
+                  className={`p-2 rounded-lg transition-colors ${
                     isDark
                       ? 'text-[#a0a0a0] hover:text-[#e0e0e0] hover:bg-[#2a2a2a]'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
