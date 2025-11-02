@@ -229,27 +229,27 @@ export default function Home() {
   const handleSaveNote = (noteData: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (editingNote) {
       // 更新现有笔记
-      const updatedNote = NotesStorage.updateNote(editingNote.id, noteData)
-      if (updatedNote) {
+      const result = NotesStorage.updateNote(editingNote.id, noteData)
+      if (result.success && result.note) {
         setNotes(NotesStorage.getNotes())
         TagsStorage.updateTagCounts(NotesStorage.getNotes())
         
         // 更新植物生长字数
-        const result = updateNoteWordCount(editingNote.id, noteData.content || '')
+        const wordCountResult = updateNoteWordCount(editingNote.id, noteData.content || '')
         
         // 使用 setTimeout 确保状态已保存到 localStorage
         setTimeout(() => {
           // 通知植物组件更新
           window.dispatchEvent(new Event('plantGrowthUpdated'))
           
-          if (result.stageChanged && result.newStage && result.oldStage) {
+          if (wordCountResult.stageChanged && wordCountResult.newStage && wordCountResult.oldStage) {
             // 触发阶段变化事件
             window.dispatchEvent(new CustomEvent('plantStageChanged', {
-              detail: { newStage: result.newStage, oldStage: result.oldStage }
+              detail: { newStage: wordCountResult.newStage, oldStage: wordCountResult.oldStage }
             }))
             
             // 如果达到结果阶段，触发特殊彩蛋
-            if (result.newStage === 'fruit') {
+            if (wordCountResult.newStage === 'fruit') {
               setEasterEggTitle('🍎 硕果累累！')
               setEasterEggContent('恭喜你！\n\n你的数字花园已经结出了丰硕的果实！\n\n总字数达到了 60,000 字！\n\n这是一个了不起的成就！\n\n继续创作，让知识之树更加茂盛！')
               setEasterEggIcon('🍎')
@@ -408,24 +408,24 @@ export default function Home() {
 
   // 重命名笔记
   const handleRenameNote = (noteId: string, newTitle: string) => {
-    const updatedNote = NotesStorage.updateNote(noteId, { title: newTitle })
-    if (updatedNote) {
+    const result = NotesStorage.updateNote(noteId, { title: newTitle })
+    if (result.success && result.note) {
       setNotes(NotesStorage.getNotes())
       // 如果重命名的是当前选中的笔记，更新选中状态
       if (selectedNote?.id === noteId) {
-        setSelectedNote(updatedNote)
+        setSelectedNote(result.note)
       }
     }
   }
 
   // 移动笔记
   const handleMoveNote = (noteId: string, targetCategory: string) => {
-    const updatedNote = NotesStorage.moveNote(noteId, targetCategory)
-    if (updatedNote) {
+    const result = NotesStorage.moveNote(noteId, targetCategory)
+    if (result.success && result.note) {
       setNotes(NotesStorage.getNotes())
       // 如果移动的是当前选中的笔记，更新选中状态
       if (selectedNote?.id === noteId) {
-        setSelectedNote(updatedNote)
+        setSelectedNote(result.note)
       }
     }
   }
@@ -892,11 +892,11 @@ export default function Home() {
                 notes={notes}
                 fontFamily={selectedFont}
                 onSave={isTemplateEditing ? handleSaveTemplate : (noteData) => {
-                  const updatedNote = NotesStorage.updateNote(selectedNote.id, noteData)
-                  if (updatedNote) {
+                  const result = NotesStorage.updateNote(selectedNote.id, noteData)
+                  if (result.success && result.note) {
                     setNotes(NotesStorage.getNotes())
                     TagsStorage.updateTagCounts(NotesStorage.getNotes())
-                    setSelectedNote(updatedNote)
+                    setSelectedNote(result.note)
                   }
                 }}
                 onNoteSelect={setSelectedNote}
@@ -954,10 +954,10 @@ export default function Home() {
                 <AnnotationsPanel
                   currentNote={selectedNote}
                   onNoteUpdate={(noteData) => {
-                    const updatedNote = NotesStorage.updateNote(selectedNote.id, noteData)
-                    if (updatedNote) {
+                    const result = NotesStorage.updateNote(selectedNote.id, noteData)
+                    if (result.success && result.note) {
                       setNotes(NotesStorage.getNotes())
-                      setSelectedNote(updatedNote)
+                      setSelectedNote(result.note)
                     }
                   }}
                   isDark={false}
@@ -969,10 +969,10 @@ export default function Home() {
                 <LinksPanel
                   currentNote={selectedNote}
                   onNoteUpdate={(noteData) => {
-                    const updatedNote = NotesStorage.updateNote(selectedNote.id, noteData)
-                    if (updatedNote) {
+                    const result = NotesStorage.updateNote(selectedNote.id, noteData)
+                    if (result.success && result.note) {
                       setNotes(NotesStorage.getNotes())
-                      setSelectedNote(updatedNote)
+                      setSelectedNote(result.note)
                     }
                   }}
                   isDark={false}

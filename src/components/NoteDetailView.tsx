@@ -43,6 +43,31 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
   const [showH3Menu, setShowH3Menu] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showTableModal, setShowTableModal] = useState(false)
+  const [isToolbarFixed, setIsToolbarFixed] = useState(false)
+  
+  // 监听滚动，固定工具栏
+  useEffect(() => {
+    if (!isEditing) {
+      setIsToolbarFixed(false)
+      return
+    }
+
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement
+      if (target) {
+        const scrollTop = target.scrollTop
+        // 当滚动超过200px时固定工具栏
+        setIsToolbarFixed(scrollTop > 200)
+      }
+    }
+
+    // 查找包含 custom-scrollbar 类的滚动容器
+    const scrollContainer = document.querySelector('.h-full.overflow-auto.custom-scrollbar')
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll)
+      return () => scrollContainer.removeEventListener('scroll', handleScroll)
+    }
+  }, [isEditing])
   
   // 当笔记切换时，更新状态
   useEffect(() => {
@@ -790,7 +815,12 @@ function example() {
               } focus:ring-2 focus:ring-blue-500/20 rounded px-2 py-1`}
               placeholder="笔记标题..."
             />
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* 固定工具栏 */}
+            <div className={`flex items-center gap-2 flex-wrap transition-all duration-300 ${
+              isToolbarFixed 
+                ? 'sticky top-0 z-40 shadow-md backdrop-blur-md -mx-6 px-6 py-3 ' + (isDark ? 'bg-[#1a1a1a]/95 border-b border-[#404040]' : 'bg-white/95 border-b border-gray-200')
+                : ''
+            }`}>
               {/* 基础操作按钮 */}
               <button
                 onClick={handleSave}
@@ -1056,6 +1086,8 @@ function example() {
                 <Brackets className="w-4 h-4" />
               </button>
             </div>
+            {/* 占位符，防止内容跳动 */}
+            {isToolbarFixed && <div className="h-14"></div>}
           </div>
         ) : (
           <div>

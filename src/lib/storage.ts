@@ -7,6 +7,55 @@ const STORAGE_KEYS = {
   TAGS: 'digital-garden-tags'
 }
 
+// 存储工具函数
+class StorageUtils {
+  // 获取字符串的字节大小
+  static getByteSize(str: string): number {
+    return new Blob([str]).size
+  }
+
+  // 获取存储使用情况（MB）
+  static getStorageSize(): number {
+    let total = 0
+    for (const key in localStorage) {
+      if (localStorage.hasOwnProperty(key)) {
+        total += this.getByteSize(localStorage[key] || '')
+      }
+    }
+    return total / (1024 * 1024) // 转换为MB
+  }
+
+  // 检查是否可以存储
+  static canStore(data: string): { success: boolean; message?: string; size?: number } {
+    const dataSize = this.getByteSize(data)
+    const dataSizeMB = dataSize / (1024 * 1024)
+    const currentSize = this.getStorageSize()
+    const estimatedTotal = currentSize + dataSizeMB
+
+    // localStorage 通常限制为 5-10MB，这里设置为 8MB 作为警告阈值
+    const WARNING_THRESHOLD = 8
+    const MAX_THRESHOLD = 9.5
+
+    if (estimatedTotal > MAX_THRESHOLD) {
+      return {
+        success: false,
+        message: `存储空间不足！当前使用 ${currentSize.toFixed(2)}MB，此次保存需要 ${dataSizeMB.toFixed(2)}MB，总计 ${estimatedTotal.toFixed(2)}MB，已接近浏览器限制（约10MB）。\n\n建议：\n1. 删除一些不需要的笔记\n2. 将长笔记拆分为多篇\n3. 使用导出功能备份后清理数据`,
+        size: dataSizeMB
+      }
+    }
+
+    if (estimatedTotal > WARNING_THRESHOLD) {
+      return {
+        success: true,
+        message: `警告：存储空间即将不足！当前使用 ${currentSize.toFixed(2)}MB / 约10MB。建议及时清理或导出数据。`,
+        size: dataSizeMB
+      }
+    }
+
+    return { success: true, size: dataSizeMB }
+  }
+}
+
 // 笔记存储管理
 export class NotesStorage {
   static getNotes(): Note[] {
@@ -22,12 +71,46 @@ export class NotesStorage {
     }
   }
 
-  static saveNotes(notes: Note[]): void {
-    if (typeof window === 'undefined') return
-    localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(notes))
+  static saveNotes(notes: Note[]): { success: boolean; message?: string } {
+    if (typeof window === 'undefined') return { success: false, message: '服务端环境无法保存' }
+    
+    try {
+      const data = JSON.stringify(notes)
+      const checkResult = StorageUtils.canStore(data)
+      
+      if (!checkResult.success) {
+        console.error('存储失败:', checkResult.message)
+        // 尝试显示错误提示
+        if (typeof window !== 'undefined' && checkResult.message) {
+          alert(checkResult.message)
+        }
+        return { success: false, message: checkResult.message }
+      }
+      
+      localStorage.setItem(STORAGE_KEYS.NOTES, data)
+      
+      // 如果有警告信息，在控制台显示
+      if (checkResult.message) {
+        console.warn(checkResult.message)
+      }
+      
+      return { success: true, message: checkResult.message }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      console.error('保存笔记失败:', errorMessage)
+      
+      // 如果是 QuotaExceededError，提供更友好的提示
+      if (errorMessage.includes('quota') || errorMessage.includes('QuotaExceededError')) {
+        const friendlyMessage = '存储空间已满！\n\n浏览器的本地存储空间已用完（约10MB限制）。\n\n建议：\n1. 删除一些旧笔记\n2. 将长笔记分割成多篇\n3. 使用批量导出功能备份数据后清理'
+        alert(friendlyMessage)
+        return { success: false, message: friendlyMessage }
+      }
+      
+      return { success: false, message: `保存失败: ${errorMessage}` }
+    }
   }
 
-  static addNote(note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Note {
+  static addNote(note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): { note: Note | null; success: boolean; message?: string } {
     const newNote: Note = {
       ...note,
       id: crypto.randomUUID(),
@@ -37,15 +120,20 @@ export class NotesStorage {
     
     const notes = this.getNotes()
     notes.unshift(newNote)
-    this.saveNotes(notes)
-    return newNote
+    const result = this.saveNotes(notes)
+    
+    if (!result.success) {
+      return { note: null, success: false, message: result.message }
+    }
+    
+    return { note: newNote, success: true, message: result.message }
   }
 
-  static updateNote(id: string, updates: Partial<Note>): Note | null {
+  static updateNote(id: string, updates: Partial<Note>): { note: Note | null; success: boolean; message?: string } {
     const notes = this.getNotes()
     const index = notes.findIndex(note => note.id === id)
     
-    if (index === -1) return null
+    if (index === -1) return { note: null, success: false, message: '笔记不存在' }
     
     notes[index] = {
       ...notes[index],
@@ -53,8 +141,13 @@ export class NotesStorage {
       updatedAt: new Date().toISOString()
     }
     
-    this.saveNotes(notes)
-    return notes[index]
+    const result = this.saveNotes(notes)
+    
+    if (!result.success) {
+      return { note: null, success: false, message: result.message }
+    }
+    
+    return { note: notes[index], success: true, message: result.message }
   }
 
   static deleteNote(id: string): boolean {
@@ -67,7 +160,7 @@ export class NotesStorage {
     return true
   }
 
-  static moveNote(id: string, targetCategory: string): Note | null {
+  static moveNote(id: string, targetCategory: string): { note: Note | null; success: boolean; message?: string } {
     return this.updateNote(id, { category: targetCategory })
   }
 }
