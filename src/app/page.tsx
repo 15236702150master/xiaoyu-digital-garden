@@ -292,28 +292,28 @@ export default function Home() {
       }
     } else {
       // 创建新笔记
-      const newNote = NotesStorage.addNote(noteData)
+      const result = NotesStorage.addNote(noteData)
       const allNotes = NotesStorage.getNotes()
       setNotes(allNotes)
       TagsStorage.updateTagCounts(allNotes)
       
       // 更新植物生长字数（新笔记）
-      if (newNote) {
-        const result = updateNoteWordCount(newNote.id, noteData.content || '')
+      if (result.success && result.note) {
+        const wordCountResult = updateNoteWordCount(result.note.id, noteData.content || '')
         
         // 使用 setTimeout 确保状态已保存到 localStorage
         setTimeout(() => {
           // 通知植物组件更新
           window.dispatchEvent(new Event('plantGrowthUpdated'))
           
-          if (result.stageChanged && result.newStage && result.oldStage) {
+          if (wordCountResult.stageChanged && wordCountResult.newStage && wordCountResult.oldStage) {
             // 触发阶段变化事件
             window.dispatchEvent(new CustomEvent('plantStageChanged', {
-              detail: { newStage: result.newStage, oldStage: result.oldStage }
+              detail: { newStage: wordCountResult.newStage, oldStage: wordCountResult.oldStage }
             }))
             
             // 如果达到结果阶段，触发特殊彩蛋
-            if (result.newStage === 'fruit') {
+            if (wordCountResult.newStage === 'fruit') {
               setEasterEggTitle('🍎 硕果累累！')
               setEasterEggContent('恭喜你！\n\n你的数字花园已经结出了丰硕的果实！\n\n总字数达到了 60,000 字！\n\n这是一个了不起的成就！\n\n继续创作，让知识之树更加茂盛！')
               setEasterEggIcon('🍎')
@@ -539,14 +539,14 @@ export default function Home() {
       isPublished: true
     }
     
-    const createdNote = NotesStorage.addNote(noteData)
+    const result = NotesStorage.addNote(noteData)
     const allNotes = NotesStorage.getNotes()
     setNotes(allNotes)
     TagsStorage.updateTagCounts(allNotes)
     
     // 更新植物生长字数（新笔记，内容为空）
-    if (createdNote) {
-      updateNoteWordCount(createdNote.id, '')
+    if (result.success && result.note) {
+      updateNoteWordCount(result.note.id, '')
       
       // 使用 setTimeout 确保状态已保存
       setTimeout(() => {
@@ -603,7 +603,7 @@ export default function Home() {
       isPublished: true
     }
     
-    const newNote = NotesStorage.addNote(noteData)
+    const addResult = NotesStorage.addNote(noteData)
     
     // 更新状态
     const allNotes = NotesStorage.getNotes()
@@ -611,22 +611,22 @@ export default function Home() {
     TagsStorage.updateTagCounts(allNotes)
     
     // 更新植物生长字数（模板笔记）
-    if (newNote) {
-      const result = updateNoteWordCount(newNote.id, template.content || '')
+    if (addResult.success && addResult.note) {
+      const wordCountResult = updateNoteWordCount(addResult.note.id, template.content || '')
       
       // 使用 setTimeout 确保状态已保存到 localStorage
       setTimeout(() => {
         // 通知植物组件更新
         window.dispatchEvent(new Event('plantGrowthUpdated'))
         
-        if (result.stageChanged && result.newStage && result.oldStage) {
+        if (wordCountResult.stageChanged && wordCountResult.newStage && wordCountResult.oldStage) {
           // 触发阶段变化事件
           window.dispatchEvent(new CustomEvent('plantStageChanged', {
-            detail: { newStage: result.newStage, oldStage: result.oldStage }
+            detail: { newStage: wordCountResult.newStage, oldStage: wordCountResult.oldStage }
           }))
           
           // 如果达到结果阶段，触发特殊彩蛋
-          if (result.newStage === 'fruit') {
+          if (wordCountResult.newStage === 'fruit') {
             setEasterEggTitle('🍎 硕果累累！')
             setEasterEggContent('恭喜你！\n\n你的数字花园已经结出了丰硕的果实！\n\n总字数达到了 60,000 字！\n\n这是一个了不起的成就！\n\n继续创作，让知识之树更加茂盛！')
             setEasterEggIcon('🍎')
@@ -669,8 +669,8 @@ export default function Home() {
     checkWeeklyNotes(weeklyNotes.length)
     
     // 选择新创建的笔记
-    if (newNote) {
-      setSelectedNote(newNote)
+    if (addResult.success && addResult.note) {
+      setSelectedNote(addResult.note)
       setSelectedCategory(categoryName)
     }
   }
