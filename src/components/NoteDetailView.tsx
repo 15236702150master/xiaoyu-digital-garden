@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { 
   ArrowLeft, Edit, Save, X, Upload, Bold, Italic, Underline, Highlighter, Code, Link, Quote, StickyNote, Indent, Type, 
   Heading1, Heading2, Heading3, List, ListOrdered, CheckSquare, Minus, Code2, BookOpen, ChevronDown, 
@@ -44,28 +44,30 @@ export default function NoteDetailView({ note, isDark, onSave, onClose, notes = 
   const [isSaving, setIsSaving] = useState(false)
   const [showTableModal, setShowTableModal] = useState(false)
   const [isToolbarFixed, setIsToolbarFixed] = useState(false)
+  const toolbarSentinelRef = useRef<HTMLDivElement>(null)
   
-  // 监听滚动，固定工具栏
+  // 使用 IntersectionObserver 监听工具栏是否离开视口
   useEffect(() => {
-    if (!isEditing) {
+    if (!isEditing || !toolbarSentinelRef.current) {
       setIsToolbarFixed(false)
       return
     }
 
-    const handleScroll = (e: Event) => {
-      const target = e.target as HTMLElement
-      if (target) {
-        const scrollTop = target.scrollTop
-        // 当滚动超过200px时固定工具栏
-        setIsToolbarFixed(scrollTop > 200)
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // 当哨兵元素离开视口时，固定工具栏
+        setIsToolbarFixed(!entry.isIntersecting)
+      },
+      {
+        threshold: 0,
+        rootMargin: '-1px 0px 0px 0px' // 稍微提前触发
       }
-    }
+    )
 
-    // 查找包含 custom-scrollbar 类的滚动容器
-    const scrollContainer = document.querySelector('.h-full.overflow-auto.custom-scrollbar')
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll)
-      return () => scrollContainer.removeEventListener('scroll', handleScroll)
+    observer.observe(toolbarSentinelRef.current)
+
+    return () => {
+      observer.disconnect()
     }
   }, [isEditing])
   
@@ -815,6 +817,8 @@ function example() {
               } focus:ring-2 focus:ring-blue-500/20 rounded px-2 py-1`}
               placeholder="笔记标题..."
             />
+            {/* 哨兵元素 - 用于检测工具栏是否应该固定 */}
+            <div ref={toolbarSentinelRef} className="h-0" />
             {/* 固定工具栏 */}
             <div className={`flex items-center gap-2 flex-wrap transition-all duration-300 ${
               isToolbarFixed 
